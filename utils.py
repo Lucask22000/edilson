@@ -126,6 +126,12 @@ def inject_custom_css(page_title: str) -> None:
                 border: 1px solid rgba(255, 255, 255, 0.22);
                 color: var(--sidebar-text);
             }
+            [data-testid="stSidebar"] [data-testid="stButton"] > button *,
+            [data-testid="stSidebar"] [data-testid="stButton"] > button p,
+            [data-testid="stSidebar"] [data-testid="stButton"] > button span {
+                color: var(--sidebar-text) !important;
+                -webkit-text-fill-color: var(--sidebar-text) !important;
+            }
             [data-testid="stSidebar"] [data-testid="stButton"] > button:hover {
                 background: rgba(255, 255, 255, 0.18);
                 border-color: rgba(255, 255, 255, 0.32);
@@ -179,7 +185,8 @@ def inject_custom_css(page_title: str) -> None:
                 box-shadow: 0 0 0 2px rgba(15, 111, 134, 0.18);
             }
             .stButton > button,
-            .stDownloadButton > button {
+            .stDownloadButton > button,
+            [data-testid="stLinkButton"] a {
                 background: linear-gradient(180deg, var(--brand) 0%, #0d6276 100%);
                 color: #ffffff;
                 border: 1px solid var(--brand-strong);
@@ -187,17 +194,39 @@ def inject_custom_css(page_title: str) -> None:
                 font-weight: 600;
                 box-shadow: 0 6px 14px rgba(15, 111, 134, 0.18);
             }
+            .stButton > button *,
+            .stButton > button p,
+            .stButton > button span,
+            .stDownloadButton > button *,
+            .stDownloadButton > button p,
+            .stDownloadButton > button span,
+            [data-testid="stLinkButton"] a,
+            [data-testid="stLinkButton"] a *,
+            [data-testid="stLinkButton"] a p,
+            [data-testid="stLinkButton"] a span {
+                color: #ffffff !important;
+                -webkit-text-fill-color: #ffffff !important;
+                text-decoration: none !important;
+            }
             .stButton > button:hover,
-            .stDownloadButton > button:hover {
+            .stDownloadButton > button:hover,
+            [data-testid="stLinkButton"] a:hover {
                 background: linear-gradient(180deg, #0d6276 0%, var(--brand-strong) 100%);
                 border-color: #094352;
                 color: #ffffff;
             }
-            .stButton > button[kind="secondary"] {
+            .stButton > button[kind="secondary"],
+            [data-testid="stLinkButton"] a[kind="secondary"] {
                 background: var(--surface-muted);
                 color: var(--text-main);
                 border: 1px solid var(--border);
                 box-shadow: none;
+            }
+            .stButton > button[kind="secondary"] *,
+            .stButton > button[kind="secondary"] p,
+            .stButton > button[kind="secondary"] span {
+                color: var(--text-main) !important;
+                -webkit-text-fill-color: var(--text-main) !important;
             }
             [data-testid="stAlert"] {
                 border-radius: 14px;
