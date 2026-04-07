@@ -198,13 +198,16 @@ def inject_custom_css(page_title: str) -> None:
             .stButton > button *,
             .stButton > button p,
             .stButton > button span,
+            .stButton > button [data-testid="stMarkdownContainer"] p,
             .stDownloadButton > button *,
             .stDownloadButton > button p,
             .stDownloadButton > button span,
+            .stDownloadButton > button [data-testid="stMarkdownContainer"] p,
             [data-testid="stLinkButton"] a,
             [data-testid="stLinkButton"] a *,
             [data-testid="stLinkButton"] a p,
-            [data-testid="stLinkButton"] a span {
+            [data-testid="stLinkButton"] a span,
+            [data-testid="stLinkButton"] a [data-testid="stMarkdownContainer"] p {
                 color: #ffffff !important;
                 -webkit-text-fill-color: #ffffff !important;
                 text-decoration: none !important;
@@ -225,7 +228,8 @@ def inject_custom_css(page_title: str) -> None:
             }
             .stButton > button[kind="secondary"] *,
             .stButton > button[kind="secondary"] p,
-            .stButton > button[kind="secondary"] span {
+            .stButton > button[kind="secondary"] span,
+            .stButton > button[kind="secondary"] [data-testid="stMarkdownContainer"] p {
                 color: var(--text-main) !important;
                 -webkit-text-fill-color: var(--text-main) !important;
             }
