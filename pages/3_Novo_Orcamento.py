@@ -11,23 +11,29 @@ from utils import (
     configure_page,
     currency,
     default_validity_date,
+    ensure_authenticated,
     init_quote_state,
     inject_custom_css,
     load_quote_into_state,
+    render_sidebar_branding,
     reset_quote_state,
 )
 
 
-configure_page("Novo Orcamento")
+PAGE_TITLE = "Novo Orçamento"
+
+configure_page(PAGE_TITLE)
 init_db()
-inject_custom_css()
+inject_custom_css(PAGE_TITLE)
+ensure_authenticated(PAGE_TITLE)
+render_sidebar_branding(PAGE_TITLE)
 init_quote_state()
 
 if st.session_state.get("orcamento_duplicar_id"):
     original = get_orcamento(st.session_state["orcamento_duplicar_id"])
     if original:
         load_quote_into_state(original)
-        st.success("Dados do orcamento carregados para duplicacao. Ajuste o que precisar e salve como novo.")
+        st.success("Dados do orçamento carregados para duplicação. Ajuste o que precisar e salve como novo.")
     del st.session_state["orcamento_duplicar_id"]
 
 clientes = list_clients()
@@ -53,11 +59,11 @@ if produtos_ativos and st.session_state.get("item_produto_id") not in produto_ma
     st.session_state["item_produto_id"] = produtos_ativos[0]["id"]
     carregar_preco_padrao()
 
-st.title("Novo orcamento")
-st.caption("Monte o orcamento com itens cadastrados, calculo automatico e salvamento no banco local.")
+st.title("Novo orçamento")
+st.caption("Monte o orçamento com itens cadastrados, cálculo automático e salvamento no banco local.")
 
 if not clientes:
-    st.warning("Cadastre pelo menos um cliente antes de criar um orcamento.")
+    st.warning("Cadastre pelo menos um cliente antes de criar um orçamento.")
     st.stop()
 
 cliente_ids = [cliente["id"] for cliente in clientes]
@@ -69,7 +75,7 @@ col_meta, col_itens = st.columns([1.15, 1.2], gap="large")
 with col_meta:
     st.subheader("Dados principais")
     numero_orcamento = get_next_quote_number()
-    st.text_input("Numero do orcamento", value=numero_orcamento, disabled=True)
+    st.text_input("Número do orçamento", value=numero_orcamento, disabled=True)
 
     cliente_opcoes = {cliente["id"]: cliente["nome"] for cliente in clientes}
     st.selectbox(
@@ -78,14 +84,14 @@ with col_meta:
         format_func=lambda client_id: cliente_opcoes[client_id],
         key="orc_cliente_id",
     )
-    st.date_input("Data do orcamento *", key="orc_data")
-    st.text_input("Responsavel pelo orcamento *", key="orc_responsavel")
+    st.date_input("Data do orçamento *", key="orc_data")
+    st.text_input("Responsável pelo orçamento *", key="orc_responsavel")
     st.selectbox("Status", STATUS_ORCAMENTO, key="orc_status")
-    st.date_input("Validade do orcamento", key="orc_validade")
+    st.date_input("Validade do orçamento", key="orc_validade")
     st.number_input("Metragem total da obra (m2)", min_value=0.0, step=1.0, key="orc_metragem_total")
-    st.text_input("Prazo estimado da execucao", key="orc_prazo_execucao")
+    st.text_input("Prazo estimado da execução", key="orc_prazo_execucao")
     st.text_input("Forma de pagamento", key="orc_forma_pagamento")
-    st.text_area("Observacoes gerais", key="orc_observacoes", height=140)
+    st.text_area("Observações gerais", key="orc_observacoes", height=140)
 
 with col_itens:
     st.subheader("Adicionar item")
@@ -100,25 +106,25 @@ with col_itens:
         )
         produto_selecionado = produto_map[st.session_state["item_produto_id"]]
         st.caption(
-            f"Categoria: {produto_selecionado['categoria']} | Preco padrao: {currency(produto_selecionado['preco_unitario'])}"
+            f"Categoria: {produto_selecionado['categoria']} | Preço padrão: {currency(produto_selecionado['preco_unitario'])}"
         )
         i1, i2 = st.columns(2)
         i1.number_input("Quantidade *", min_value=0.0, step=1.0, key="item_quantidade")
-        i2.number_input("Valor unitario *", min_value=0.0, step=1.0, format="%.2f", key="item_valor_unitario")
-        st.text_area("Observacao do item", key="item_observacoes", height=90)
+        i2.number_input("Valor unitário *", min_value=0.0, step=1.0, format="%.2f", key="item_valor_unitario")
+        st.text_area("Observação do item", key="item_observacoes", height=90)
 
         subtotal_preview = calcular_subtotal_item(
             st.session_state["item_quantidade"], st.session_state["item_valor_unitario"]
         )
         st.info(f"Subtotal do item: {currency(subtotal_preview)}")
 
-        if st.button("Adicionar item ao orcamento", use_container_width=True):
+        if st.button("Adicionar item ao orçamento", use_container_width=True):
             quantidade = float(st.session_state["item_quantidade"])
             valor_unitario = float(st.session_state["item_valor_unitario"])
             if quantidade <= 0:
                 st.error("A quantidade deve ser maior que zero.")
             elif valor_unitario < 0:
-                st.error("O valor unitario nao pode ser negativo.")
+                st.error("O valor unitário não pode ser negativo.")
             else:
                 st.session_state["orcamento_itens_temp"].append(
                     {
@@ -138,9 +144,9 @@ with col_itens:
                 st.success("Item adicionado com sucesso.")
                 st.rerun()
     else:
-        st.warning("Nenhum produto ou servico ativo encontrado. Cadastre itens antes de montar o orcamento.")
+        st.warning("Nenhum produto ou serviço ativo encontrado. Cadastre itens antes de montar o orçamento.")
 
-st.markdown("### Itens do orcamento")
+st.markdown("### Itens do orçamento")
 itens_temp = st.session_state["orcamento_itens_temp"]
 if itens_temp:
     st.dataframe(
@@ -150,9 +156,9 @@ if itens_temp:
                 "Categoria": item["categoria"],
                 "Unidade": item["unidade"],
                 "Quantidade": item["quantidade"],
-                "Valor unitario": currency(item["valor_unitario"]),
+                "Valor unitário": currency(item["valor_unitario"]),
                 "Subtotal": currency(item["subtotal"]),
-                "Observacao": item["observacoes"] or "-",
+                "Observação": item["observacoes"] or "-",
             }
             for item in itens_temp
         ],
@@ -169,12 +175,12 @@ if itens_temp:
     )
     if r2.button("Remover item", use_container_width=True):
         itens_temp.pop(remover_idx)
-        st.success("Item removido do orcamento.")
+        st.success("Item removido do orçamento.")
         st.rerun()
 else:
-    st.info("Adicione pelo menos um item para salvar o orcamento.")
+    st.info("Adicione pelo menos um item para salvar o orçamento.")
 
-st.markdown("### Calculo automatico")
+st.markdown("### Cálculo automático")
 t1, t2, t3 = st.columns(3)
 t1.selectbox("Tipo de desconto", TIPOS_DESCONTO, key="orc_desconto_tipo")
 if st.session_state["orc_desconto_tipo"] == "Percentual":
@@ -216,9 +222,9 @@ with tc4:
     )
 
 s1, s2 = st.columns([1, 1])
-if s1.button("Salvar orcamento", use_container_width=True, type="primary"):
+if s1.button("Salvar orçamento", use_container_width=True, type="primary"):
     if not st.session_state["orc_responsavel"].strip():
-        st.error("Informe o nome do responsavel pelo orcamento.")
+        st.error("Informe o nome do responsável pelo orçamento.")
     elif not itens_temp:
         st.error("Adicione pelo menos um item antes de salvar.")
     else:
@@ -246,7 +252,7 @@ if s1.button("Salvar orcamento", use_container_width=True, type="primary"):
             itens_temp,
         )
         reset_quote_state()
-        st.success("Orcamento salvo com sucesso.")
+        st.success("Orçamento salvo com sucesso.")
         st.rerun()
 
 if s2.button("Limpar rascunho atual", use_container_width=True):

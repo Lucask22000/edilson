@@ -4,11 +4,11 @@ from typing import List
 
 CATEGORIAS_PADRAO = [
     "Tintas",
-    "Preparacao",
+    "Preparação",
     "Ferramentas",
-    "Mao de obra",
+    "Mão de obra",
     "Acabamento",
-    "Servico especializado",
+    "Serviço especializado",
 ]
 
 UNIDADES_PADRAO = [

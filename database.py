@@ -5,9 +5,13 @@ from contextlib import closing
 from datetime import date
 from pathlib import Path
 
+from services.auth import hash_password
+
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "orcamentos.db"
+DEFAULT_ADMIN_USERNAME = "admin"
+DEFAULT_ADMIN_PASSWORD = "142536"
 
 
 def dict_factory(cursor: sqlite3.Cursor, row: tuple) -> dict:
@@ -19,6 +23,40 @@ def get_connection() -> sqlite3.Connection:
     connection.row_factory = dict_factory
     connection.execute("PRAGMA foreign_keys = ON;")
     return connection
+
+
+def ensure_column(conn: sqlite3.Connection, table_name: str, column_name: str, definition: str) -> None:
+    columns = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    existing_columns = {column["name"] for column in columns}
+    if column_name not in existing_columns:
+        conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
+
+
+def ensure_admin_user(conn: sqlite3.Connection) -> None:
+    admin_user = conn.execute(
+        "SELECT id FROM usuarios WHERE username = ?",
+        (DEFAULT_ADMIN_USERNAME,),
+    ).fetchone()
+    password_hash = hash_password(DEFAULT_ADMIN_PASSWORD)
+
+    if admin_user:
+        conn.execute(
+            """
+            UPDATE usuarios
+            SET nome = ?, password_hash = ?, ativo = 1
+            WHERE id = ?
+            """,
+            ("Administrador", password_hash, admin_user["id"]),
+        )
+        return
+
+    conn.execute(
+        """
+        INSERT INTO usuarios (nome, username, password_hash, ativo)
+        VALUES (?, ?, ?, ?)
+        """,
+        ("Administrador", DEFAULT_ADMIN_USERNAME, password_hash, 1),
+    )
 
 
 def init_db() -> None:
@@ -82,8 +120,89 @@ def init_db() -> None:
                 FOREIGN KEY (orcamento_id) REFERENCES orcamentos(id) ON DELETE CASCADE,
                 FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE SET NULL
             );
+
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                ativo INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS empresa_config (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                nome_fantasia TEXT NOT NULL DEFAULT 'Empresa de Pintura',
+                app_title TEXT NOT NULL DEFAULT 'Orçamentos de Pintura',
+                app_short_name TEXT NOT NULL DEFAULT 'Orçamentos',
+                razao_social TEXT,
+                cnpj TEXT,
+                telefone TEXT,
+                email TEXT,
+                endereco TEXT,
+                cidade_estado TEXT,
+                website TEXT,
+                instagram TEXT,
+                logo_base64 TEXT,
+                logo_mime TEXT,
+                logo_filename TEXT,
+                observacoes TEXT,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
             """
         )
+        ensure_column(conn, "empresa_config", "app_title", "TEXT NOT NULL DEFAULT 'Orçamentos de Pintura'")
+        ensure_column(conn, "empresa_config", "app_short_name", "TEXT NOT NULL DEFAULT 'Orçamentos'")
+        ensure_column(conn, "empresa_config", "website", "TEXT")
+        ensure_column(conn, "empresa_config", "instagram", "TEXT")
+        ensure_column(conn, "empresa_config", "logo_base64", "TEXT")
+        ensure_column(conn, "empresa_config", "logo_mime", "TEXT")
+        ensure_column(conn, "empresa_config", "logo_filename", "TEXT")
+
+        ensure_admin_user(conn)
+
+        total_empresa = conn.execute("SELECT COUNT(*) AS total FROM empresa_config").fetchone()["total"]
+        if total_empresa == 0:
+            conn.execute(
+                """
+                INSERT INTO empresa_config (
+                    id,
+                    nome_fantasia,
+                    app_title,
+                    app_short_name,
+                    razao_social,
+                    cnpj,
+                    telefone,
+                    email,
+                    endereco,
+                    cidade_estado,
+                    website,
+                    instagram,
+                    logo_base64,
+                    logo_mime,
+                    logo_filename,
+                    observacoes
+                )
+                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "Edilson Pinturas",
+                    "Orçamentos de Pintura",
+                    "Orçamentos",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "Atualize os dados da empresa na página Configurações.",
+                ),
+            )
         conn.commit()
 
 
@@ -479,3 +598,108 @@ def get_recent_orcamentos(limit: int = 5) -> list[dict]:
             """,
             (limit,),
         ).fetchall()
+
+
+def get_user_by_username(username: str) -> dict | None:
+    with closing(get_connection()) as conn:
+        return conn.execute(
+            "SELECT * FROM usuarios WHERE username = ? AND ativo = 1",
+            (username.strip(),),
+        ).fetchone()
+
+
+def update_user_password(user_id: int, password_hash: str) -> None:
+    with closing(get_connection()) as conn:
+        conn.execute(
+            "UPDATE usuarios SET password_hash = ? WHERE id = ?",
+            (password_hash, user_id),
+        )
+        conn.commit()
+
+
+def get_company_info() -> dict:
+    with closing(get_connection()) as conn:
+        company = conn.execute("SELECT * FROM empresa_config WHERE id = 1").fetchone()
+    return company or {
+        "id": 1,
+        "nome_fantasia": "Empresa de Pintura",
+        "app_title": "Orçamentos de Pintura",
+        "app_short_name": "Orçamentos",
+        "razao_social": "",
+        "cnpj": "",
+        "telefone": "",
+        "email": "",
+        "endereco": "",
+        "cidade_estado": "",
+        "website": "",
+        "instagram": "",
+        "logo_base64": "",
+        "logo_mime": "",
+        "logo_filename": "",
+        "observacoes": "",
+    }
+
+
+def upsert_company_info(data: dict) -> None:
+    with closing(get_connection()) as conn:
+        conn.execute(
+            """
+            INSERT INTO empresa_config (
+                id,
+                nome_fantasia,
+                app_title,
+                app_short_name,
+                razao_social,
+                cnpj,
+                telefone,
+                email,
+                endereco,
+                cidade_estado,
+                website,
+                instagram,
+                logo_base64,
+                logo_mime,
+                logo_filename,
+                observacoes,
+                updated_at
+            )
+            VALUES (
+                1,
+                :nome_fantasia,
+                :app_title,
+                :app_short_name,
+                :razao_social,
+                :cnpj,
+                :telefone,
+                :email,
+                :endereco,
+                :cidade_estado,
+                :website,
+                :instagram,
+                :logo_base64,
+                :logo_mime,
+                :logo_filename,
+                :observacoes,
+                CURRENT_TIMESTAMP
+            )
+            ON CONFLICT(id) DO UPDATE SET
+                nome_fantasia = excluded.nome_fantasia,
+                app_title = excluded.app_title,
+                app_short_name = excluded.app_short_name,
+                razao_social = excluded.razao_social,
+                cnpj = excluded.cnpj,
+                telefone = excluded.telefone,
+                email = excluded.email,
+                endereco = excluded.endereco,
+                cidade_estado = excluded.cidade_estado,
+                website = excluded.website,
+                instagram = excluded.instagram,
+                logo_base64 = excluded.logo_base64,
+                logo_mime = excluded.logo_mime,
+                logo_filename = excluded.logo_filename,
+                observacoes = excluded.observacoes,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            data,
+        )
+        conn.commit()

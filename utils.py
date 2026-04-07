@@ -1,14 +1,21 @@
 from __future__ import annotations
 
+import base64
 import html
-from io import BytesIO
+import json
 from datetime import date, timedelta
+from io import BytesIO
 from urllib.parse import quote
 
 import streamlit as st
+import streamlit.components.v1 as components
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
+
+from database import get_company_info, get_user_by_username
+from services.auth import verify_password
 
 
 STATUS_COLORS = {
@@ -16,18 +23,67 @@ STATUS_COLORS = {
     "Aprovado": "#1f6f43",
     "Recusado": "#b42318",
 }
+AUTH_SESSION_KEY = "auth_user"
+DEFAULT_APP_TITLE = "Orçamentos de Pintura"
+DEFAULT_APP_SHORT_NAME = "Orçamentos"
 
 
 def configure_page(page_title: str) -> None:
     st.set_page_config(
-        page_title=f"{page_title} | Orcamentos Pintura",
+        page_title=f"{page_title} | {DEFAULT_APP_TITLE}",
         page_icon="🎨",
         layout="wide",
         initial_sidebar_state="expanded",
     )
 
 
-def inject_custom_css() -> None:
+def safe_text(value: str | None, fallback: str = "-") -> str:
+    text = (value or "").strip()
+    return text if text else fallback
+
+
+def currency(value: float | int | None) -> str:
+    number = float(value or 0)
+    formatted = f"{number:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {formatted}"
+
+
+def get_logo_bytes(company_info: dict | None = None) -> bytes | None:
+    company = company_info or get_company_info()
+    logo_base64 = (company.get("logo_base64") or "").strip()
+    if not logo_base64:
+        return None
+    try:
+        return base64.b64decode(logo_base64)
+    except Exception:
+        return None
+
+
+def get_logo_data_uri(company_info: dict | None = None) -> str:
+    company = company_info or get_company_info()
+    logo_base64 = (company.get("logo_base64") or "").strip()
+    logo_mime = safe_text(company.get("logo_mime"), "image/png")
+    if not logo_base64:
+        return ""
+    return f"data:{logo_mime};base64,{logo_base64}"
+
+
+def get_app_title(company_info: dict | None = None) -> str:
+    company = company_info or get_company_info()
+    return safe_text(company.get("app_title") or company.get("nome_fantasia"), DEFAULT_APP_TITLE)
+
+
+def get_app_short_name(company_info: dict | None = None) -> str:
+    company = company_info or get_company_info()
+    return safe_text(company.get("app_short_name") or company.get("nome_fantasia"), DEFAULT_APP_SHORT_NAME)
+
+
+def inject_custom_css(page_title: str) -> None:
+    company = get_company_info()
+    full_title = f"{page_title} | {get_app_title(company)}"
+    app_short_name = get_app_short_name(company)
+    logo_data_uri = get_logo_data_uri(company)
+
     st.markdown(
         """
         <style>
@@ -172,6 +228,122 @@ def inject_custom_css() -> None:
         unsafe_allow_html=True,
     )
 
+    components.html(
+        f"""
+        <script>
+            const doc = window.parent.document;
+            doc.documentElement.lang = "pt-BR";
+            doc.title = {json.dumps(full_title)};
+
+            const ensureMeta = (attr, name, content) => {{
+                let tag = doc.head.querySelector(`meta[${{attr}}="${{name}}"]`);
+                if (!tag) {{
+                    tag = doc.createElement("meta");
+                    tag.setAttribute(attr, name);
+                    doc.head.appendChild(tag);
+                }}
+                tag.setAttribute("content", content);
+            }};
+
+            const ensureLink = (rel, href) => {{
+                let tag = doc.head.querySelector(`link[rel="${{rel}}"]`);
+                if (!tag) {{
+                    tag = doc.createElement("link");
+                    tag.setAttribute("rel", rel);
+                    doc.head.appendChild(tag);
+                }}
+                tag.setAttribute("href", href);
+            }};
+
+            ensureMeta("name", "apple-mobile-web-app-title", {json.dumps(app_short_name)});
+            ensureMeta("name", "application-name", {json.dumps(app_short_name)});
+            ensureMeta("name", "theme-color", "#164556");
+
+            const logo = {json.dumps(logo_data_uri or "")};
+            if (logo) {{
+                ensureLink("icon", logo);
+                ensureLink("shortcut icon", logo);
+                ensureLink("apple-touch-icon", logo);
+            }}
+        </script>
+        """,
+        height=0,
+    )
+
+
+def set_authenticated_user(user: dict) -> None:
+    st.session_state[AUTH_SESSION_KEY] = {
+        "id": user["id"],
+        "nome": user["nome"],
+        "username": user["username"],
+    }
+
+
+def logout() -> None:
+    if AUTH_SESSION_KEY in st.session_state:
+        del st.session_state[AUTH_SESSION_KEY]
+    st.rerun()
+
+
+def ensure_authenticated(page_title: str) -> dict:
+    auth_user = st.session_state.get(AUTH_SESSION_KEY)
+    if auth_user:
+        return auth_user
+
+    company = get_company_info()
+    logo_bytes = get_logo_bytes(company)
+
+    spacer_left, content, spacer_right = st.columns([1, 1.2, 1])
+    with content:
+        st.markdown("### Acesso ao sistema")
+        with st.container(border=True):
+            if logo_bytes:
+                st.image(logo_bytes, width=120)
+            st.subheader(safe_text(company.get("nome_fantasia"), "Empresa"))
+            st.caption(f"Entre para acessar a página {page_title.lower()}.")
+            with st.form("form_login"):
+                username = st.text_input("Login")
+                password = st.text_input("Senha", type="password")
+                submit = st.form_submit_button("Entrar", use_container_width=True)
+
+            if submit:
+                user = get_user_by_username(username)
+                if not user or not verify_password(password, user["password_hash"]):
+                    st.error("Login ou senha inválidos.")
+                else:
+                    set_authenticated_user(user)
+                    st.rerun()
+
+            st.info("Credencial padrão configurada: login `admin` e senha `142536`.")
+
+    st.stop()
+
+
+def render_sidebar_branding(page_title: str) -> None:
+    company = get_company_info()
+    logo_bytes = get_logo_bytes(company)
+    auth_user = st.session_state.get(AUTH_SESSION_KEY, {})
+
+    with st.sidebar:
+        if logo_bytes:
+            st.image(logo_bytes, width=128)
+        st.title(safe_text(company.get("nome_fantasia"), "Empresa"))
+        st.caption(page_title)
+
+        company_details = []
+        if company.get("cnpj"):
+            company_details.append(f"CNPJ: {company['cnpj']}")
+        if company.get("telefone"):
+            company_details.append(f"Tel.: {company['telefone']}")
+        if company_details:
+            st.caption(" | ".join(company_details))
+
+        st.markdown("---")
+        st.write(f"**Usuário:** {safe_text(auth_user.get('nome'), 'Administrador')}")
+        st.caption(f"Login: {safe_text(auth_user.get('username'), 'admin')}")
+        if st.button("Sair", use_container_width=True):
+            logout()
+
 
 def render_metric_card(title: str, value: str, helper: str) -> None:
     st.markdown(
@@ -184,17 +356,6 @@ def render_metric_card(title: str, value: str, helper: str) -> None:
         """,
         unsafe_allow_html=True,
     )
-
-
-def currency(value: float | int | None) -> str:
-    number = float(value or 0)
-    formatted = f"{number:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    return f"R$ {formatted}"
-
-
-def safe_text(value: str | None, fallback: str = "-") -> str:
-    text = (value or "").strip()
-    return text if text else fallback
 
 
 def render_status_badge(status: str) -> str:
@@ -285,7 +446,50 @@ def load_quote_into_state(orcamento: dict) -> None:
     st.session_state["orc_taxa_adicional"] = float(orcamento.get("taxa_adicional") or 0.0)
 
 
+def _company_detail_lines(company: dict) -> list[str]:
+    lines = [safe_text(company.get("nome_fantasia"), "Empresa")]
+    if company.get("razao_social"):
+        lines.append(company["razao_social"])
+    if company.get("cnpj"):
+        lines.append(f"CNPJ: {company['cnpj']}")
+
+    contact_parts = []
+    if company.get("telefone"):
+        contact_parts.append(company["telefone"])
+    if company.get("email"):
+        contact_parts.append(company["email"])
+    if contact_parts:
+        lines.append(" | ".join(contact_parts))
+
+    address_parts = [safe_text(company.get("endereco"), ""), safe_text(company.get("cidade_estado"), "")]
+    address_line = " - ".join([part for part in address_parts if part])
+    if address_line:
+        lines.append(address_line)
+
+    web_parts = []
+    if company.get("website"):
+        web_parts.append(company["website"])
+    if company.get("instagram"):
+        web_parts.append(company["instagram"])
+    if web_parts:
+        lines.append(" | ".join(web_parts))
+
+    return [line for line in lines if line and line != "-"]
+
+
+def _company_details_html(company: dict) -> str:
+    return "<br />".join(html.escape(line) for line in _company_detail_lines(company))
+
+
 def build_quote_html(orcamento: dict) -> str:
+    company = get_company_info()
+    logo_data_uri = get_logo_data_uri(company)
+    logo_html = (
+        f'<img src="{logo_data_uri}" alt="Logo da empresa" style="max-width:90px; max-height:90px; border-radius:14px;" />'
+        if logo_data_uri
+        else ""
+    )
+
     itens_rows = []
     for item in orcamento.get("itens", []):
         itens_rows.append(
@@ -308,10 +512,11 @@ def build_quote_html(orcamento: dict) -> str:
         desconto_valor = float(orcamento.get("subtotal") or 0) * (float(orcamento.get("desconto_percentual") or 0) / 100)
 
     return f"""
-    <html>
+    <html lang="pt-BR">
         <head>
             <meta charset="utf-8" />
-            <title>{html.escape(orcamento.get("numero", "Orcamento"))}</title>
+            <meta http-equiv="Content-Language" content="pt-BR" />
+            <title>{html.escape(orcamento.get("numero", "Orçamento"))}</title>
             <style>
                 body {{
                     font-family: Arial, sans-serif;
@@ -325,12 +530,29 @@ def build_quote_html(orcamento: dict) -> str:
                     border-bottom: 2px solid #103c4a;
                     padding-bottom: 12px;
                     margin-bottom: 18px;
+                    gap: 20px;
+                }}
+                .brand {{
+                    display: flex;
+                    gap: 14px;
+                    align-items: center;
                 }}
                 .title {{
                     color: #103c4a;
                     font-size: 26px;
                     font-weight: 700;
-                    margin: 0;
+                    margin: 0 0 6px 0;
+                }}
+                .company-name {{
+                    color: #103c4a;
+                    font-size: 20px;
+                    font-weight: 700;
+                    margin: 0 0 4px 0;
+                }}
+                .muted {{
+                    color: #52606d;
+                    line-height: 1.5;
+                    font-size: 13px;
                 }}
                 .box {{
                     border: 1px solid #d1d5db;
@@ -387,11 +609,16 @@ def build_quote_html(orcamento: dict) -> str:
         <body>
             <button class="print-btn" onclick="window.print()">Imprimir</button>
             <div class="header">
-                <div>
-                    <p class="title">Orcamento de Pintura</p>
-                    <div>{html.escape(orcamento.get("numero", ""))}</div>
+                <div class="brand">
+                    {logo_html}
+                    <div>
+                        <p class="company-name">{html.escape(safe_text(company.get("nome_fantasia"), "Empresa"))}</p>
+                        <div class="muted">{_company_details_html(company)}</div>
+                    </div>
                 </div>
                 <div>
+                    <p class="title">Orçamento de Pintura</p>
+                    <div><strong>Número:</strong> {html.escape(orcamento.get("numero", ""))}</div>
                     <div><strong>Data:</strong> {html.escape(orcamento.get("data_orcamento", ""))}</div>
                     <div><strong>Status:</strong> {html.escape(orcamento.get("status", ""))}</div>
                     <div><strong>Validade:</strong> {html.escape(orcamento.get("validade", "") or "-")}</div>
@@ -404,11 +631,11 @@ def build_quote_html(orcamento: dict) -> str:
                     <div><strong>Nome:</strong> {html.escape(orcamento.get("cliente_nome", ""))}</div>
                     <div><strong>Telefone:</strong> {html.escape(orcamento.get("cliente_telefone", "") or "-")}</div>
                     <div><strong>Email:</strong> {html.escape(orcamento.get("cliente_email", "") or "-")}</div>
-                    <div><strong>Endereco:</strong> {html.escape(orcamento.get("cliente_endereco", "") or "-")}</div>
+                    <div><strong>Endereço:</strong> {html.escape(orcamento.get("cliente_endereco", "") or "-")}</div>
                 </div>
                 <div class="box">
                     <h3>Detalhes</h3>
-                    <div><strong>Responsavel:</strong> {html.escape(orcamento.get("responsavel", ""))}</div>
+                    <div><strong>Responsável:</strong> {html.escape(orcamento.get("responsavel", ""))}</div>
                     <div><strong>Metragem:</strong> {float(orcamento.get("metragem_total") or 0):,.2f} m2</div>
                     <div><strong>Prazo estimado:</strong> {html.escape(orcamento.get("prazo_execucao", "") or "-")}</div>
                     <div><strong>Pagamento:</strong> {html.escape(orcamento.get("forma_pagamento", "") or "-")}</div>
@@ -416,7 +643,7 @@ def build_quote_html(orcamento: dict) -> str:
             </div>
 
             <div class="box">
-                <h3>Itens do orcamento</h3>
+                <h3>Itens do orçamento</h3>
                 <table>
                     <thead>
                         <tr>
@@ -424,7 +651,7 @@ def build_quote_html(orcamento: dict) -> str:
                             <th>Categoria</th>
                             <th>Unidade</th>
                             <th>Quantidade</th>
-                            <th>Valor unitario</th>
+                            <th>Valor unitário</th>
                             <th>Subtotal</th>
                         </tr>
                     </thead>
@@ -454,15 +681,42 @@ def build_quote_html(orcamento: dict) -> str:
             </table>
 
             <div class="box">
-                <h3>Observacoes</h3>
-                <div>{html.escape(orcamento.get("observacoes", "") or "Sem observacoes adicionais.")}</div>
+                <h3>Observações</h3>
+                <div>{html.escape(orcamento.get("observacoes", "") or "Sem observações adicionais.")}</div>
             </div>
         </body>
     </html>
     """
 
 
+def _draw_company_logo(pdf: canvas.Canvas, company: dict, x: float, top_y: float, max_width: float, max_height: float) -> None:
+    logo_bytes = get_logo_bytes(company)
+    if not logo_bytes:
+        return
+
+    try:
+        image = ImageReader(BytesIO(logo_bytes))
+        img_width, img_height = image.getSize()
+        scale = min(max_width / img_width, max_height / img_height)
+        draw_width = img_width * scale
+        draw_height = img_height * scale
+        pdf.drawImage(
+            image,
+            x,
+            top_y - draw_height,
+            width=draw_width,
+            height=draw_height,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+    except Exception:
+        return
+
+
 def build_quote_pdf(orcamento: dict) -> bytes:
+    company = get_company_info()
+    company_lines = _company_detail_lines(company)
+
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
@@ -472,14 +726,19 @@ def build_quote_pdf(orcamento: dict) -> bytes:
 
     def draw_page_header() -> float:
         nonlocal y
+        header_height = 88
         pdf.setFillColor(colors.HexColor("#164556"))
-        pdf.rect(0, height - 70, width, 70, fill=1, stroke=0)
+        pdf.rect(0, height - header_height, width, header_height, fill=1, stroke=0)
         pdf.setFillColor(colors.white)
-        pdf.setFont("Helvetica-Bold", 18)
-        pdf.drawString(left, height - 42, "Orcamento de Pintura")
+        _draw_company_logo(pdf, company, left, height - 12, 56, 56)
+        text_x = left + (66 if get_logo_bytes(company) else 0)
+        pdf.setFont("Helvetica-Bold", 16)
+        pdf.drawString(text_x, height - 28, safe_text(company.get("nome_fantasia"), "Empresa"))
         pdf.setFont("Helvetica", 10)
-        pdf.drawRightString(right, height - 42, safe_text(orcamento.get("numero")))
-        y = height - 92
+        pdf.drawString(text_x, height - 44, "Orçamento de Pintura")
+        pdf.drawRightString(right, height - 28, safe_text(orcamento.get("numero")))
+        pdf.drawRightString(right, height - 44, safe_text(orcamento.get("data_orcamento")))
+        y = height - 108
         return y
 
     def ensure_space(minimum: float) -> None:
@@ -488,12 +747,12 @@ def build_quote_pdf(orcamento: dict) -> bytes:
             pdf.showPage()
             draw_page_header()
 
-    def draw_label_value(label: str, value: str, pos_x: float, pos_y: float) -> None:
+    def draw_label_value(label: str, value: str, pos_x: float, pos_y: float, offset: float = 70) -> None:
         pdf.setFillColor(colors.HexColor("#374151"))
         pdf.setFont("Helvetica-Bold", 10)
         pdf.drawString(pos_x, pos_y, f"{label}:")
         pdf.setFont("Helvetica", 10)
-        pdf.drawString(pos_x + 70, pos_y, safe_text(value))
+        pdf.drawString(pos_x + offset, pos_y, safe_text(value))
 
     def draw_wrapped_text(text: str, pos_x: float, pos_y: float, max_width: int, line_height: int = 12) -> float:
         nonlocal y
@@ -508,7 +767,8 @@ def build_quote_pdf(orcamento: dict) -> bytes:
             if pdf.stringWidth(test_line, "Helvetica", 10) <= max_width:
                 current = test_line
             else:
-                lines.append(current)
+                if current:
+                    lines.append(current)
                 current = word
         if current:
             lines.append(current)
@@ -528,6 +788,17 @@ def build_quote_pdf(orcamento: dict) -> bytes:
 
     pdf.setFillColor(colors.HexColor("#0f172a"))
     pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(left, y, "Dados da empresa")
+    y -= 18
+    pdf.setFont("Helvetica", 10)
+    for line in company_lines:
+        ensure_space(90)
+        pdf.drawString(left, y, line)
+        y -= 13
+    y -= 8
+
+    ensure_space(180)
+    pdf.setFont("Helvetica-Bold", 12)
     pdf.drawString(left, y, "Dados do cliente")
     y -= 18
     draw_label_value("Nome", safe_text(orcamento.get("cliente_nome")), left, y)
@@ -537,25 +808,25 @@ def build_quote_pdf(orcamento: dict) -> bytes:
     draw_label_value("Email", safe_text(orcamento.get("cliente_email")), left, y)
     y -= 14
     pdf.setFont("Helvetica-Bold", 10)
-    pdf.drawString(left, y, "Endereco:")
+    pdf.drawString(left, y, "Endereço:")
     pdf.setFont("Helvetica", 10)
     y = draw_wrapped_text(safe_text(orcamento.get("cliente_endereco")), left + 70, y, 420)
     y -= 8
 
-    ensure_space(160)
+    ensure_space(170)
     pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawString(left, y, "Dados do orcamento")
+    pdf.drawString(left, y, "Dados do orçamento")
     y -= 18
     draw_label_value("Data", safe_text(orcamento.get("data_orcamento")), left, y)
     draw_label_value("Status", safe_text(orcamento.get("status")), 300, y)
     y -= 14
-    draw_label_value("Responsavel", safe_text(orcamento.get("responsavel")), left, y)
+    draw_label_value("Responsável", safe_text(orcamento.get("responsavel")), left, y, offset=88)
     draw_label_value("Validade", safe_text(orcamento.get("validade")), 300, y)
     y -= 14
-    draw_label_value("Pagamento", safe_text(orcamento.get("forma_pagamento")), left, y)
+    draw_label_value("Pagamento", safe_text(orcamento.get("forma_pagamento")), left, y, offset=82)
     draw_label_value("Prazo", safe_text(orcamento.get("prazo_execucao")), 300, y)
     y -= 14
-    draw_label_value("Metragem", f"{float(orcamento.get('metragem_total') or 0):,.2f} m2", left, y)
+    draw_label_value("Metragem", f"{float(orcamento.get('metragem_total') or 0):,.2f} m2", left, y, offset=76)
     y -= 24
 
     ensure_space(180)
@@ -596,7 +867,8 @@ def build_quote_pdf(orcamento: dict) -> bytes:
             if pdf.stringWidth(test_line, "Helvetica", 9) <= 200:
                 current = test_line
             else:
-                name_lines.append(current)
+                if current:
+                    name_lines.append(current)
                 current = word
         if current:
             name_lines.append(current)
@@ -643,37 +915,41 @@ def build_quote_pdf(orcamento: dict) -> bytes:
 
     ensure_space(100)
     pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawString(left, y, "Observacoes")
+    pdf.drawString(left, y, "Observações")
     y -= 16
     pdf.setFont("Helvetica", 10)
-    draw_wrapped_text(safe_text(orcamento.get("observacoes"), "Sem observacoes adicionais."), left, y, 500)
+    draw_wrapped_text(safe_text(orcamento.get("observacoes"), "Sem observações adicionais."), left, y, 500)
 
     pdf.save()
     return buffer.getvalue()
 
 
 def build_share_message(orcamento: dict) -> str:
+    company = get_company_info()
+    company_name = safe_text(company.get("nome_fantasia"), "Empresa")
     return (
-        f"Orcamento {safe_text(orcamento.get('numero'))}\n"
+        f"{company_name}\n"
+        f"Orçamento {safe_text(orcamento.get('numero'))}\n"
         f"Cliente: {safe_text(orcamento.get('cliente_nome'))}\n"
         f"Data: {safe_text(orcamento.get('data_orcamento'))}\n"
         f"Validade: {safe_text(orcamento.get('validade'))}\n"
         f"Status: {safe_text(orcamento.get('status'))}\n"
         f"Total final: {currency(orcamento.get('total_final', 0))}\n"
-        f"Responsavel: {safe_text(orcamento.get('responsavel'))}\n"
-        f"Observacoes: {safe_text(orcamento.get('observacoes'), 'Sem observacoes adicionais.')}"
+        f"Responsável: {safe_text(orcamento.get('responsavel'))}\n"
+        f"Observações: {safe_text(orcamento.get('observacoes'), 'Sem observações adicionais.')}"
     )
 
 
 def build_share_links(orcamento: dict) -> dict:
+    company = get_company_info()
+    company_name = safe_text(company.get("nome_fantasia"), "Empresa")
     message = build_share_message(orcamento)
-    subject = quote(f"Orcamento {safe_text(orcamento.get('numero'))} - {safe_text(orcamento.get('cliente_nome'))}")
+    subject = quote(f"Orçamento {safe_text(orcamento.get('numero'))} - {company_name}")
     encoded_message = quote(message)
     phone_digits = "".join(char for char in safe_text(orcamento.get("cliente_telefone"), "") if char.isdigit())
 
-    links = {
+    return {
         "email": f"mailto:{safe_text(orcamento.get('cliente_email'), '')}?subject={subject}&body={encoded_message}",
         "whatsapp": f"https://wa.me/{phone_digits}?text={encoded_message}" if phone_digits else "",
         "message": message,
     }
-    return links
