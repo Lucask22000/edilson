@@ -10,7 +10,8 @@ Projeto web simples e funcional para cadastro de produtos, clientes e geracao de
 - Criacao de orcamentos com varios itens.
 - Calculo automatico de subtotal, desconto, taxa adicional e total final.
 - Consulta de orcamentos com filtros por cliente, status e periodo.
-- Visualizacao detalhada com exportacao em HTML imprimivel.
+- Visualizacao detalhada com exportacao em PDF e HTML imprimivel.
+- Compartilhamento rapido por e-mail e WhatsApp com mensagem pronta.
 - Banco de dados SQLite criado automaticamente ao iniciar.
 - Dados de exemplo opcionais para teste rapido.
 
@@ -84,6 +85,7 @@ O banco `orcamentos.db` sera criado automaticamente na primeira execucao.
 ## Observacoes tecnicas
 
 - O projeto usa apenas Streamlit e SQLite.
+- A geracao de PDF usa a biblioteca `reportlab`.
 - O banco e local, ideal para prototipos, pequenas operacoes e hospedagem simples.
 - Os itens do orcamento guardam uma copia do nome, unidade e preco usado no momento do cadastro do orcamento.
 - Clientes com orcamentos vinculados nao podem ser excluidos para preservar historico.

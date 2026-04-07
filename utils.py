@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import html
+from io import BytesIO
 from datetime import date, timedelta
+from urllib.parse import quote
 
 import streamlit as st
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 
 STATUS_COLORS = {
@@ -455,3 +460,220 @@ def build_quote_html(orcamento: dict) -> str:
         </body>
     </html>
     """
+
+
+def build_quote_pdf(orcamento: dict) -> bytes:
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    left = 40
+    right = width - 40
+    y = height - 45
+
+    def draw_page_header() -> float:
+        nonlocal y
+        pdf.setFillColor(colors.HexColor("#164556"))
+        pdf.rect(0, height - 70, width, 70, fill=1, stroke=0)
+        pdf.setFillColor(colors.white)
+        pdf.setFont("Helvetica-Bold", 18)
+        pdf.drawString(left, height - 42, "Orcamento de Pintura")
+        pdf.setFont("Helvetica", 10)
+        pdf.drawRightString(right, height - 42, safe_text(orcamento.get("numero")))
+        y = height - 92
+        return y
+
+    def ensure_space(minimum: float) -> None:
+        nonlocal y
+        if y < minimum:
+            pdf.showPage()
+            draw_page_header()
+
+    def draw_label_value(label: str, value: str, pos_x: float, pos_y: float) -> None:
+        pdf.setFillColor(colors.HexColor("#374151"))
+        pdf.setFont("Helvetica-Bold", 10)
+        pdf.drawString(pos_x, pos_y, f"{label}:")
+        pdf.setFont("Helvetica", 10)
+        pdf.drawString(pos_x + 70, pos_y, safe_text(value))
+
+    def draw_wrapped_text(text: str, pos_x: float, pos_y: float, max_width: int, line_height: int = 12) -> float:
+        nonlocal y
+        value = safe_text(text, "")
+        if not value:
+            return pos_y
+        words = value.split()
+        lines: list[str] = []
+        current = ""
+        for word in words:
+            test_line = f"{current} {word}".strip()
+            if pdf.stringWidth(test_line, "Helvetica", 10) <= max_width:
+                current = test_line
+            else:
+                lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+        for line in lines:
+            ensure_space(80)
+            pdf.drawString(pos_x, pos_y, line)
+            pos_y -= line_height
+            y = pos_y
+        return pos_y
+
+    desconto_label = orcamento.get("desconto_tipo", "Nenhum")
+    desconto_valor = float(orcamento.get("desconto_valor") or 0)
+    if desconto_label == "Percentual":
+        desconto_valor = float(orcamento.get("subtotal") or 0) * (float(orcamento.get("desconto_percentual") or 0) / 100)
+
+    draw_page_header()
+
+    pdf.setFillColor(colors.HexColor("#0f172a"))
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(left, y, "Dados do cliente")
+    y -= 18
+    draw_label_value("Nome", safe_text(orcamento.get("cliente_nome")), left, y)
+    y -= 14
+    draw_label_value("Telefone", safe_text(orcamento.get("cliente_telefone")), left, y)
+    y -= 14
+    draw_label_value("Email", safe_text(orcamento.get("cliente_email")), left, y)
+    y -= 14
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(left, y, "Endereco:")
+    pdf.setFont("Helvetica", 10)
+    y = draw_wrapped_text(safe_text(orcamento.get("cliente_endereco")), left + 70, y, 420)
+    y -= 8
+
+    ensure_space(160)
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(left, y, "Dados do orcamento")
+    y -= 18
+    draw_label_value("Data", safe_text(orcamento.get("data_orcamento")), left, y)
+    draw_label_value("Status", safe_text(orcamento.get("status")), 300, y)
+    y -= 14
+    draw_label_value("Responsavel", safe_text(orcamento.get("responsavel")), left, y)
+    draw_label_value("Validade", safe_text(orcamento.get("validade")), 300, y)
+    y -= 14
+    draw_label_value("Pagamento", safe_text(orcamento.get("forma_pagamento")), left, y)
+    draw_label_value("Prazo", safe_text(orcamento.get("prazo_execucao")), 300, y)
+    y -= 14
+    draw_label_value("Metragem", f"{float(orcamento.get('metragem_total') or 0):,.2f} m2", left, y)
+    y -= 24
+
+    ensure_space(180)
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(left, y, "Itens")
+    y -= 18
+
+    header_y = y
+    pdf.setFillColor(colors.HexColor("#eaf2f5"))
+    pdf.rect(left, header_y - 4, right - left, 18, fill=1, stroke=0)
+    pdf.setFillColor(colors.HexColor("#0f172a"))
+    pdf.setFont("Helvetica-Bold", 9)
+    columns = [
+        ("Item", left + 4),
+        ("Qtd.", left + 215),
+        ("Un.", left + 255),
+        ("Vlr. unit.", left + 310),
+        ("Subtotal", left + 395),
+    ]
+    for label, x_pos in columns:
+        pdf.drawString(x_pos, header_y + 2, label)
+    y -= 22
+
+    pdf.setFont("Helvetica", 9)
+    for item in orcamento.get("itens", []):
+        ensure_space(90)
+        item_nome = safe_text(item.get("item_nome"))
+        quantidade = f"{float(item.get('quantidade') or 0):,.2f}"
+        unidade = safe_text(item.get("unidade"))
+        valor_unitario = currency(item.get("valor_unitario", 0))
+        subtotal = currency(item.get("subtotal", 0))
+        observacao = safe_text(item.get("observacoes"), "")
+
+        name_lines = []
+        current = ""
+        for word in item_nome.split():
+            test_line = f"{current} {word}".strip()
+            if pdf.stringWidth(test_line, "Helvetica", 9) <= 200:
+                current = test_line
+            else:
+                name_lines.append(current)
+                current = word
+        if current:
+            name_lines.append(current)
+        row_height = max(16, len(name_lines) * 12)
+        if observacao:
+            row_height += 12
+
+        pdf.setStrokeColor(colors.HexColor("#d7e1e7"))
+        pdf.line(left, y - 4, right, y - 4)
+
+        text_y = y
+        for line in name_lines:
+            pdf.drawString(left + 4, text_y, line)
+            text_y -= 11
+        if observacao:
+            pdf.setFillColor(colors.HexColor("#52606d"))
+            pdf.drawString(left + 4, text_y, f"Obs.: {observacao[:70]}")
+            pdf.setFillColor(colors.HexColor("#0f172a"))
+
+        pdf.drawRightString(left + 248, y, quantidade)
+        pdf.drawString(left + 258, y, unidade)
+        pdf.drawRightString(left + 388, y, valor_unitario)
+        pdf.drawRightString(right - 4, y, subtotal)
+        y -= row_height
+
+    y -= 10
+    ensure_space(130)
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawRightString(430, y, "Subtotal:")
+    pdf.drawRightString(right, y, currency(orcamento.get("subtotal", 0)))
+    y -= 14
+    pdf.drawRightString(430, y, f"Desconto ({desconto_label}):")
+    pdf.drawRightString(right, y, currency(desconto_valor))
+    y -= 14
+    pdf.drawRightString(430, y, "Taxa adicional:")
+    pdf.drawRightString(right, y, currency(orcamento.get("taxa_adicional", 0)))
+    y -= 18
+    pdf.setFillColor(colors.HexColor("#164556"))
+    pdf.setFont("Helvetica-Bold", 13)
+    pdf.drawRightString(430, y, "Total final:")
+    pdf.drawRightString(right, y, currency(orcamento.get("total_final", 0)))
+    pdf.setFillColor(colors.HexColor("#0f172a"))
+    y -= 28
+
+    ensure_space(100)
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(left, y, "Observacoes")
+    y -= 16
+    pdf.setFont("Helvetica", 10)
+    draw_wrapped_text(safe_text(orcamento.get("observacoes"), "Sem observacoes adicionais."), left, y, 500)
+
+    pdf.save()
+    return buffer.getvalue()
+
+
+def build_share_message(orcamento: dict) -> str:
+    return (
+        f"Orcamento {safe_text(orcamento.get('numero'))}\n"
+        f"Cliente: {safe_text(orcamento.get('cliente_nome'))}\n"
+        f"Data: {safe_text(orcamento.get('data_orcamento'))}\n"
+        f"Validade: {safe_text(orcamento.get('validade'))}\n"
+        f"Status: {safe_text(orcamento.get('status'))}\n"
+        f"Total final: {currency(orcamento.get('total_final', 0))}\n"
+        f"Responsavel: {safe_text(orcamento.get('responsavel'))}\n"
+        f"Observacoes: {safe_text(orcamento.get('observacoes'), 'Sem observacoes adicionais.')}"
+    )
+
+
+def build_share_links(orcamento: dict) -> dict:
+    message = build_share_message(orcamento)
+    subject = quote(f"Orcamento {safe_text(orcamento.get('numero'))} - {safe_text(orcamento.get('cliente_nome'))}")
+    encoded_message = quote(message)
+    phone_digits = "".join(char for char in safe_text(orcamento.get("cliente_telefone"), "") if char.isdigit())
+
+    links = {
+        "email": f"mailto:{safe_text(orcamento.get('cliente_email'), '')}?subject={subject}&body={encoded_message}",
+        "whatsapp": f"https://wa.me/{phone_digits}?text={encoded_message}" if phone_digits else "",
+        "message": message,
+    }
+    return links

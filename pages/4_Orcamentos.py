@@ -7,7 +7,16 @@ import streamlit.components.v1 as components
 
 from database import delete_orcamento, get_orcamento, init_db, list_orcamentos, update_orcamento_status
 from models import STATUS_ORCAMENTO
-from utils import build_quote_html, configure_page, currency, inject_custom_css, render_status_badge, safe_text
+from utils import (
+    build_quote_html,
+    build_quote_pdf,
+    build_share_links,
+    configure_page,
+    currency,
+    inject_custom_css,
+    render_status_badge,
+    safe_text,
+)
 
 
 configure_page("Orcamentos")
@@ -156,7 +165,7 @@ if orcamento_detalhe_id:
         st.write(safe_text(detalhe["observacoes"]))
 
         st.markdown("#### Acoes")
-        u1, u2 = st.columns([1, 2])
+        u1, u2, u3 = st.columns([1, 1, 1])
         novo_status = u1.selectbox(
             "Atualizar status",
             STATUS_ORCAMENTO,
@@ -168,13 +177,39 @@ if orcamento_detalhe_id:
             st.rerun()
 
         html_export = build_quote_html(detalhe)
+        pdf_export = build_quote_pdf(detalhe)
         u2.download_button(
+            "Baixar PDF",
+            data=pdf_export,
+            file_name=f"{detalhe['numero']}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+        u3.download_button(
             "Baixar HTML imprimivel",
             data=html_export,
             file_name=f"{detalhe['numero']}.html",
             mime="text/html",
             use_container_width=True,
         )
+
+        st.markdown("#### Compartilhar")
+        share_data = build_share_links(detalhe)
+        share1, share2 = st.columns(2)
+        with share1:
+            if detalhe.get("cliente_email"):
+                st.link_button("Compartilhar por e-mail", share_data["email"], use_container_width=True)
+            else:
+                st.caption("Cliente sem e-mail cadastrado para compartilhamento direto.")
+        with share2:
+            if share_data["whatsapp"]:
+                st.link_button("Compartilhar no WhatsApp", share_data["whatsapp"], use_container_width=True)
+            else:
+                st.caption("Cliente sem telefone valido para link direto no WhatsApp.")
+
+        with st.expander("Mensagem pronta para compartilhar", expanded=False):
+            st.code(share_data["message"], language="text")
+            st.caption("Dica: voce pode enviar a mensagem pronta e anexar o PDF baixado.")
 
         with st.expander("Visualizar layout limpo para impressao", expanded=False):
             components.html(html_export, height=700, scrolling=True)
