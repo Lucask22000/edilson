@@ -19,9 +19,9 @@ from services.auth import verify_password
 
 
 STATUS_COLORS = {
-    "Rascunho": "#9a6700",
-    "Aprovado": "#1f6f43",
-    "Recusado": "#b42318",
+    "Rascunho": "#5b7083",
+    "Aprovado": "#31a24c",
+    "Recusado": "#d93025",
 }
 AUTH_SESSION_KEY = "auth_user"
 DEFAULT_APP_TITLE = "Orçamentos de Pintura"
@@ -88,32 +88,33 @@ def inject_custom_css(page_title: str) -> None:
         """
         <style>
             :root {
-                --bg-top: #eef4f7;
-                --bg-bottom: #ffffff;
+                --bg-top: #f0f2f5;
+                --bg-bottom: #e9ebee;
                 --surface: #ffffff;
-                --surface-muted: #f6fafc;
-                --surface-strong: #edf5f8;
-                --border: #b9cad3;
-                --border-strong: #8fa8b5;
-                --text-main: #10202d;
-                --text-soft: #415463;
-                --text-muted: #5c6f7d;
-                --brand: #0f6f86;
-                --brand-strong: #0b5566;
-                --brand-deep: #123845;
-                --sidebar-top: #0f2f3a;
-                --sidebar-bottom: #184b5a;
-                --sidebar-text: #f8fbfc;
-                --sidebar-muted: #d9e8ed;
+                --surface-muted: #f7f8fa;
+                --surface-strong: #eef3ff;
+                --border: #d8dbe1;
+                --border-strong: #c8ccd4;
+                --text-main: #1c1e21;
+                --text-soft: #3a3b3c;
+                --text-muted: #65676b;
+                --brand: #1877f2;
+                --brand-strong: #166fe5;
+                --brand-deep: #145dbf;
+                --sidebar-top: #ffffff;
+                --sidebar-bottom: #f7f8fa;
+                --sidebar-text: #1c1e21;
+                --sidebar-muted: #65676b;
             }
             .stApp {
                 background:
-                    radial-gradient(circle at top right, rgba(15, 111, 134, 0.08), transparent 28%),
-                    linear-gradient(180deg, var(--bg-top) 0%, #f9fbfc 18%, var(--bg-bottom) 100%);
+                    radial-gradient(circle at top right, rgba(24, 119, 242, 0.08), transparent 28%),
+                    linear-gradient(180deg, var(--bg-top) 0%, #f5f6f7 20%, var(--bg-bottom) 100%);
                 color: var(--text-main);
             }
             [data-testid="stSidebar"] {
                 background: linear-gradient(180deg, var(--sidebar-top) 0%, var(--sidebar-bottom) 100%);
+                border-right: 1px solid var(--border);
             }
             [data-testid="stSidebar"] * {
                 color: var(--sidebar-text);
@@ -134,8 +135,8 @@ def inject_custom_css(page_title: str) -> None:
                 -webkit-text-fill-color: var(--sidebar-text) !important;
             }
             [data-testid="stSidebar"] [data-testid="stButton"] > button:hover {
-                background: rgba(255, 255, 255, 0.08);
-                border-color: rgba(255, 255, 255, 0.12);
+                background: rgba(24, 119, 242, 0.08);
+                border-color: rgba(24, 119, 242, 0.15);
             }
             .block-container {
                 padding-top: 2rem;
@@ -157,8 +158,8 @@ def inject_custom_css(page_title: str) -> None:
                 border-radius: 16px;
             }
             [data-testid="stForm"] {
-                background: rgba(255, 255, 255, 0.82);
-                border: 1px solid rgba(185, 202, 211, 0.72);
+                background: rgba(255, 255, 255, 0.96);
+                border: 1px solid rgba(216, 219, 225, 0.95);
                 padding: 1rem;
             }
             div[data-baseweb="input"] > div,
@@ -183,17 +184,17 @@ def inject_custom_css(page_title: str) -> None:
             div[data-baseweb="textarea"] > div:focus-within,
             [data-testid="stDateInputField"]:focus-within {
                 border-color: var(--brand);
-                box-shadow: 0 0 0 2px rgba(15, 111, 134, 0.18);
+                box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.18);
             }
             .stButton > button,
             .stDownloadButton > button,
             [data-testid="stLinkButton"] a {
-                background: linear-gradient(180deg, var(--brand) 0%, #0d6276 100%);
+                background: linear-gradient(180deg, var(--brand) 0%, var(--brand-strong) 100%);
                 color: #ffffff;
                 border: 1px solid var(--brand-strong);
                 border-radius: 12px;
                 font-weight: 600;
-                box-shadow: 0 6px 14px rgba(15, 111, 134, 0.18);
+                box-shadow: 0 6px 14px rgba(24, 119, 242, 0.18);
             }
             .stButton > button *,
             .stButton > button p,
@@ -215,8 +216,8 @@ def inject_custom_css(page_title: str) -> None:
             .stButton > button:hover,
             .stDownloadButton > button:hover,
             [data-testid="stLinkButton"] a:hover {
-                background: linear-gradient(180deg, #0d6276 0%, var(--brand-strong) 100%);
-                border-color: #094352;
+                background: linear-gradient(180deg, #1b74e4 0%, #1464cf 100%);
+                border-color: #125bc4;
                 color: #ffffff;
             }
             .stButton > button[kind="secondary"],
@@ -240,18 +241,18 @@ def inject_custom_css(page_title: str) -> None:
             [data-testid="stDataFrame"] {
                 background: var(--surface);
                 border: 1px solid var(--border);
-                box-shadow: 0 8px 24px rgba(16, 32, 45, 0.06);
+                box-shadow: 0 8px 24px rgba(28, 30, 33, 0.06);
             }
             [data-testid="stTable"] {
                 color: var(--text-main);
             }
             [data-testid="stExpander"] {
-                background: rgba(255, 255, 255, 0.88);
-                border: 1px solid rgba(185, 202, 211, 0.72);
+                background: rgba(255, 255, 255, 0.96);
+                border: 1px solid rgba(216, 219, 225, 0.9);
             }
             [data-testid="stMetric"] {
-                background: rgba(255, 255, 255, 0.9);
-                border: 1px solid rgba(185, 202, 211, 0.72);
+                background: rgba(255, 255, 255, 0.98);
+                border: 1px solid rgba(216, 219, 225, 0.95);
                 padding: 0.25rem 0.35rem;
             }
             .hero-box {
@@ -260,14 +261,14 @@ def inject_custom_css(page_title: str) -> None:
                 border-radius: 18px;
                 padding: 1.4rem 1.6rem;
                 margin-bottom: 1rem;
-                box-shadow: 0 16px 36px rgba(18, 56, 69, 0.2);
+                box-shadow: 0 16px 36px rgba(24, 119, 242, 0.22);
             }
             .metric-card {
                 background: var(--surface);
-                border: 1px solid rgba(185, 202, 211, 0.78);
+                border: 1px solid rgba(216, 219, 225, 0.95);
                 border-radius: 16px;
                 padding: 1rem 1.1rem;
-                box-shadow: 0 12px 28px rgba(16, 32, 45, 0.08);
+                box-shadow: 0 12px 28px rgba(28, 30, 33, 0.08);
                 min-height: 118px;
             }
             .metric-label {
@@ -288,11 +289,11 @@ def inject_custom_css(page_title: str) -> None:
             }
             .section-card {
                 background: var(--surface);
-                border: 1px solid rgba(185, 202, 211, 0.78);
+                border: 1px solid rgba(216, 219, 225, 0.95);
                 border-radius: 16px;
                 padding: 1rem 1.1rem;
                 margin-bottom: 1rem;
-                box-shadow: 0 8px 22px rgba(16, 32, 45, 0.06);
+                box-shadow: 0 8px 22px rgba(28, 30, 33, 0.06);
             }
             .status-pill {
                 display: inline-block;
@@ -303,8 +304,8 @@ def inject_custom_css(page_title: str) -> None:
                 font-size: 0.85rem;
             }
             .total-box {
-                background: linear-gradient(180deg, #f6fbfd 0%, var(--surface-strong) 100%);
-                border: 1px solid rgba(143, 168, 181, 0.75);
+                background: linear-gradient(180deg, #f7faff 0%, var(--surface-strong) 100%);
+                border: 1px solid rgba(24, 119, 242, 0.18);
                 border-radius: 16px;
                 padding: 1rem 1.2rem;
                 color: var(--text-main);
@@ -344,7 +345,7 @@ def inject_custom_css(page_title: str) -> None:
 
             ensureMeta("name", "apple-mobile-web-app-title", {json.dumps(app_short_name)});
             ensureMeta("name", "application-name", {json.dumps(app_short_name)});
-            ensureMeta("name", "theme-color", "#164556");
+            ensureMeta("name", "theme-color", "#1877f2");
 
             const logo = {json.dumps(logo_data_uri or "")};
             if (logo) {{
@@ -607,14 +608,14 @@ def build_quote_html(orcamento: dict) -> str:
             <style>
                 body {{
                     font-family: Arial, sans-serif;
-                    color: #1f2937;
+                    color: #1c1e21;
                     margin: 24px;
                 }}
                 .header {{
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-start;
-                    border-bottom: 2px solid #103c4a;
+                    border-bottom: 2px solid #1877f2;
                     padding-bottom: 12px;
                     margin-bottom: 18px;
                     gap: 20px;
@@ -625,24 +626,24 @@ def build_quote_html(orcamento: dict) -> str:
                     align-items: center;
                 }}
                 .title {{
-                    color: #103c4a;
+                    color: #1877f2;
                     font-size: 26px;
                     font-weight: 700;
                     margin: 0 0 6px 0;
                 }}
                 .company-name {{
-                    color: #103c4a;
+                    color: #1877f2;
                     font-size: 20px;
                     font-weight: 700;
                     margin: 0 0 4px 0;
                 }}
                 .muted {{
-                    color: #52606d;
+                    color: #65676b;
                     line-height: 1.5;
                     font-size: 13px;
                 }}
                 .box {{
-                    border: 1px solid #d1d5db;
+                    border: 1px solid #dadde1;
                     border-radius: 12px;
                     padding: 14px;
                     margin-bottom: 16px;
@@ -658,12 +659,12 @@ def build_quote_html(orcamento: dict) -> str:
                     margin-top: 12px;
                 }}
                 th, td {{
-                    border: 1px solid #d1d5db;
+                    border: 1px solid #dadde1;
                     padding: 8px;
                     font-size: 13px;
                 }}
                 th {{
-                    background: #f3f4f6;
+                    background: #f0f2f5;
                     text-align: left;
                 }}
                 .totals {{
@@ -678,7 +679,7 @@ def build_quote_html(orcamento: dict) -> str:
                 .total-final {{
                     font-size: 18px;
                     font-weight: 700;
-                    color: #103c4a;
+                    color: #1877f2;
                 }}
                 .print-btn {{
                     margin-bottom: 16px;
@@ -814,7 +815,7 @@ def build_quote_pdf(orcamento: dict) -> bytes:
     def draw_page_header() -> float:
         nonlocal y
         header_height = 88
-        pdf.setFillColor(colors.HexColor("#164556"))
+        pdf.setFillColor(colors.HexColor("#1877F2"))
         pdf.rect(0, height - header_height, width, header_height, fill=1, stroke=0)
         pdf.setFillColor(colors.white)
         _draw_company_logo(pdf, company, left, height - 12, 56, 56)
@@ -835,7 +836,7 @@ def build_quote_pdf(orcamento: dict) -> bytes:
             draw_page_header()
 
     def draw_label_value(label: str, value: str, pos_x: float, pos_y: float, offset: float = 70) -> None:
-        pdf.setFillColor(colors.HexColor("#374151"))
+        pdf.setFillColor(colors.HexColor("#3A3B3C"))
         pdf.setFont("Helvetica-Bold", 10)
         pdf.drawString(pos_x, pos_y, f"{label}:")
         pdf.setFont("Helvetica", 10)
@@ -873,7 +874,7 @@ def build_quote_pdf(orcamento: dict) -> bytes:
 
     draw_page_header()
 
-    pdf.setFillColor(colors.HexColor("#0f172a"))
+    pdf.setFillColor(colors.HexColor("#1C1E21"))
     pdf.setFont("Helvetica-Bold", 12)
     pdf.drawString(left, y, "Dados da empresa")
     y -= 18
@@ -922,9 +923,9 @@ def build_quote_pdf(orcamento: dict) -> bytes:
     y -= 18
 
     header_y = y
-    pdf.setFillColor(colors.HexColor("#eaf2f5"))
+    pdf.setFillColor(colors.HexColor("#F0F2F5"))
     pdf.rect(left, header_y - 4, right - left, 18, fill=1, stroke=0)
-    pdf.setFillColor(colors.HexColor("#0f172a"))
+    pdf.setFillColor(colors.HexColor("#1C1E21"))
     pdf.setFont("Helvetica-Bold", 9)
     columns = [
         ("Item", left + 4),
@@ -963,7 +964,7 @@ def build_quote_pdf(orcamento: dict) -> bytes:
         if observacao:
             row_height += 12
 
-        pdf.setStrokeColor(colors.HexColor("#d7e1e7"))
+        pdf.setStrokeColor(colors.HexColor("#DADDE1"))
         pdf.line(left, y - 4, right, y - 4)
 
         text_y = y
@@ -971,9 +972,9 @@ def build_quote_pdf(orcamento: dict) -> bytes:
             pdf.drawString(left + 4, text_y, line)
             text_y -= 11
         if observacao:
-            pdf.setFillColor(colors.HexColor("#52606d"))
+            pdf.setFillColor(colors.HexColor("#65676B"))
             pdf.drawString(left + 4, text_y, f"Obs.: {observacao[:70]}")
-            pdf.setFillColor(colors.HexColor("#0f172a"))
+            pdf.setFillColor(colors.HexColor("#1C1E21"))
 
         pdf.drawRightString(left + 248, y, quantidade)
         pdf.drawString(left + 258, y, unidade)
@@ -993,11 +994,11 @@ def build_quote_pdf(orcamento: dict) -> bytes:
     pdf.drawRightString(430, y, "Taxa adicional:")
     pdf.drawRightString(right, y, currency(orcamento.get("taxa_adicional", 0)))
     y -= 18
-    pdf.setFillColor(colors.HexColor("#164556"))
+    pdf.setFillColor(colors.HexColor("#1877F2"))
     pdf.setFont("Helvetica-Bold", 13)
     pdf.drawRightString(430, y, "Total final:")
     pdf.drawRightString(right, y, currency(orcamento.get("total_final", 0)))
-    pdf.setFillColor(colors.HexColor("#0f172a"))
+    pdf.setFillColor(colors.HexColor("#1C1E21"))
     y -= 28
 
     ensure_space(100)

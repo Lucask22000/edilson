@@ -121,7 +121,7 @@ if orcamento_detalhe_id:
             f"""
             <div class="section-card">
                 <h4 style="margin-top:0;">Total final</h4>
-                <div style="font-size:1.8rem; font-weight:700; color:#103c4a;">{currency(detalhe['total_final'])}</div>
+                <div style="font-size:1.8rem; font-weight:700; color:#1877f2;">{currency(detalhe['total_final'])}</div>
                 <p style="margin:0.8rem 0 0 0;"><strong>Metragem:</strong> {float(detalhe['metragem_total'] or 0):,.2f} m2</p>
             </div>
             """,
