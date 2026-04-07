@@ -402,7 +402,6 @@ def ensure_authenticated(page_title: str) -> dict:
                     set_authenticated_user(user)
                     st.rerun()
 
-            st.info("Credencial padrão configurada: login `admin` e senha `142536`.")
 
     st.stop()
 

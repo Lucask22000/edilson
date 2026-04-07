@@ -4,7 +4,7 @@ import base64
 
 import streamlit as st
 
-from database import DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME, get_company_info, init_db, upsert_company_info
+from database import get_company_info, init_db, upsert_company_info
 from utils import configure_page, ensure_authenticated, get_logo_bytes, inject_custom_css, render_sidebar_branding
 
 
@@ -21,12 +21,6 @@ company = get_company_info()
 
 st.title("Configurações")
 st.caption("Atualize os dados da empresa, o nome do app e a logo usada na interface e nos documentos.")
-
-info1, info2 = st.columns([1, 1])
-with info1:
-    st.info(f"Login padrão ativo: `{DEFAULT_ADMIN_USERNAME}`")
-with info2:
-    st.info(f"Senha padrão ativa: `{DEFAULT_ADMIN_PASSWORD}`")
 
 st.markdown("### Logo e identidade")
 logo_bytes = get_logo_bytes(company)
