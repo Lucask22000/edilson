@@ -122,9 +122,10 @@ def inject_custom_css(page_title: str) -> None:
                 color: var(--sidebar-muted);
             }
             [data-testid="stSidebar"] [data-testid="stButton"] > button {
-                background: rgba(255, 255, 255, 0.1);
-                border: 1px solid rgba(255, 255, 255, 0.22);
+                background: transparent;
+                border: 1px solid transparent;
                 color: var(--sidebar-text);
+                box-shadow: none;
             }
             [data-testid="stSidebar"] [data-testid="stButton"] > button *,
             [data-testid="stSidebar"] [data-testid="stButton"] > button p,
@@ -133,8 +134,8 @@ def inject_custom_css(page_title: str) -> None:
                 -webkit-text-fill-color: var(--sidebar-text) !important;
             }
             [data-testid="stSidebar"] [data-testid="stButton"] > button:hover {
-                background: rgba(255, 255, 255, 0.18);
-                border-color: rgba(255, 255, 255, 0.32);
+                background: rgba(255, 255, 255, 0.08);
+                border-color: rgba(255, 255, 255, 0.12);
             }
             .block-container {
                 padding-top: 2rem;
