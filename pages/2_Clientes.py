@@ -4,6 +4,7 @@ import streamlit as st
 
 from components import render_data_hint, render_empty_state, render_page_header, render_section_header, setup_page
 from database import create_client, delete_client, get_client, list_clients, update_client
+from utils import validate_client_payload
 
 
 PAGE_TITLE = "Clientes"
@@ -29,18 +30,20 @@ with st.container(border=True):
         salvar = st.form_submit_button("Cadastrar cliente", use_container_width=True)
 
         if salvar:
-            if not nome.strip():
-                st.error("Informe o nome do cliente.")
+            payload, errors = validate_client_payload(
+                {
+                    "nome": nome,
+                    "telefone": telefone,
+                    "email": email,
+                    "endereco": endereco,
+                    "observacoes": observacoes,
+                }
+            )
+            if errors:
+                for error in errors:
+                    st.error(error)
             else:
-                create_client(
-                    {
-                        "nome": nome.strip(),
-                        "telefone": telefone.strip(),
-                        "email": email.strip(),
-                        "endereco": endereco.strip(),
-                        "observacoes": observacoes.strip(),
-                    }
-                )
+                create_client(payload)
                 st.success("Cliente cadastrado com sucesso.")
                 st.rerun()
 
@@ -108,19 +111,20 @@ if cliente_edicao_id:
             cancelar = cancel_col.form_submit_button("Cancelar", use_container_width=True)
 
             if salvar:
-                if not nome.strip():
-                    st.error("Informe o nome do cliente.")
+                payload, errors = validate_client_payload(
+                    {
+                        "nome": nome,
+                        "telefone": telefone,
+                        "email": email,
+                        "endereco": endereco,
+                        "observacoes": observacoes,
+                    }
+                )
+                if errors:
+                    for error in errors:
+                        st.error(error)
                 else:
-                    update_client(
-                        cliente_edicao_id,
-                        {
-                            "nome": nome.strip(),
-                            "telefone": telefone.strip(),
-                            "email": email.strip(),
-                            "endereco": endereco.strip(),
-                            "observacoes": observacoes.strip(),
-                        },
-                    )
+                    update_client(cliente_edicao_id, payload)
                     st.success("Cliente atualizado com sucesso.")
                     del st.session_state["cliente_edicao_id"]
                     st.rerun()

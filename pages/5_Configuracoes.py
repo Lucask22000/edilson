@@ -6,7 +6,7 @@ import streamlit as st
 
 from components import render_data_hint, render_empty_state, render_page_header, render_section_header, setup_page
 from database import get_company_info, upsert_company_info
-from utils import get_logo_bytes
+from utils import get_logo_bytes, validate_company_payload
 
 
 PAGE_TITLE = "Configuracoes"
@@ -76,43 +76,51 @@ with st.form("form_configuracoes_empresa"):
     salvar = st.form_submit_button("Salvar configuracoes", use_container_width=True)
 
     if salvar:
-        if not nome_fantasia.strip():
-            st.error("Informe pelo menos o nome fantasia da empresa.")
-        elif not app_title.strip():
-            st.error("Informe o titulo do app.")
-        elif not app_short_name.strip():
-            st.error("Informe o nome curto do app.")
-        elif logo_file is not None and len(logo_file.getvalue()) > MAX_LOGO_SIZE:
+        if logo_file is not None and len(logo_file.getvalue()) > MAX_LOGO_SIZE:
             st.error("A logo excede o limite de 2 MB.")
         else:
-            data = {
-                "nome_fantasia": nome_fantasia.strip(),
-                "app_title": app_title.strip(),
-                "app_short_name": app_short_name.strip(),
-                "razao_social": razao_social.strip(),
-                "cnpj": cnpj.strip(),
-                "telefone": telefone.strip(),
-                "email": email.strip(),
-                "endereco": endereco.strip(),
-                "cidade_estado": cidade_estado.strip(),
-                "website": website.strip(),
-                "instagram": instagram.strip(),
-                "logo_base64": company.get("logo_base64") or "",
-                "logo_mime": company.get("logo_mime") or "",
-                "logo_filename": company.get("logo_filename") or "",
-                "observacoes": observacoes.strip(),
-            }
+            data, errors = validate_company_payload(
+                {
+                    "nome_fantasia": nome_fantasia,
+                    "app_title": app_title,
+                    "app_short_name": app_short_name,
+                    "razao_social": razao_social,
+                    "cnpj": cnpj,
+                    "telefone": telefone,
+                    "email": email,
+                    "endereco": endereco,
+                    "cidade_estado": cidade_estado,
+                    "website": website,
+                    "instagram": instagram,
+                    "observacoes": observacoes,
+                    "logo_base64": company.get("logo_base64") or "",
+                    "logo_mime": company.get("logo_mime") or "",
+                    "logo_filename": company.get("logo_filename") or "",
+                }
+            )
 
-            if remover_logo:
-                data["logo_base64"] = ""
-                data["logo_mime"] = ""
-                data["logo_filename"] = ""
-            elif logo_file is not None:
-                logo_bytes = logo_file.getvalue()
-                data["logo_base64"] = base64.b64encode(logo_bytes).decode("ascii")
-                data["logo_mime"] = logo_file.type or "image/png"
-                data["logo_filename"] = logo_file.name
+            if errors:
+                for error in errors:
+                    st.error(error)
+            else:
+                data.update(
+                    {
+                        "logo_base64": company.get("logo_base64") or "",
+                        "logo_mime": company.get("logo_mime") or "",
+                        "logo_filename": company.get("logo_filename") or "",
+                    }
+                )
 
-            upsert_company_info(data)
-            st.success("Configuracoes salvas com sucesso.")
-            st.rerun()
+                if remover_logo:
+                    data["logo_base64"] = ""
+                    data["logo_mime"] = ""
+                    data["logo_filename"] = ""
+                elif logo_file is not None:
+                    logo_bytes = logo_file.getvalue()
+                    data["logo_base64"] = base64.b64encode(logo_bytes).decode("ascii")
+                    data["logo_mime"] = logo_file.type or "image/png"
+                    data["logo_filename"] = logo_file.name
+
+                upsert_company_info(data)
+                st.success("Configuracoes salvas com sucesso.")
+                st.rerun()

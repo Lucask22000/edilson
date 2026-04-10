@@ -6,3 +6,38 @@ __pycache__/
 .DS_Store
 .env
 .streamlit/secrets.toml
+
+# Python caches and tooling
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.coverage
+.coverage.*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+htmlcov/
+build/
+dist/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Streamlit local state
+.streamlit/config.toml
+
+# Editors and OS files
+.idea/
+.vscode/
+Thumbs.db
+desktop.ini
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp

@@ -1,4 +1,4 @@
-Projeto: Sistema de Orçamentos - Snapshot completo gerado em 2026-04-09 17:09:06
+Projeto: Sistema de Orçamentos - Snapshot completo gerado em 2026-04-09 18:02:29
 
 Cada seção abaixo mostra o caminho do arquivo original seguido pelo conteúdo completo.
 
@@ -109,6 +109,41 @@ __pycache__/
 .DS_Store
 .env
 .streamlit/secrets.toml
+
+# Python caches and tooling
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.coverage
+.coverage.*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+htmlcov/
+build/
+dist/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Streamlit local state
+.streamlit/config.toml
+
+# Editors and OS files
+.idea/
+.vscode/
+Thumbs.db
+desktop.ini
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
 
 ----- app.py -----
 from __future__ import annotations
@@ -976,9 +1011,10 @@ from __future__ import annotations
 import base64
 import html
 import json
+import re
 from datetime import date, timedelta
 from io import BytesIO
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -1000,6 +1036,9 @@ AUTH_SESSION_KEY = "auth_user"
 DEFAULT_APP_TITLE = "Orçamentos de Pintura"
 DEFAULT_APP_SHORT_NAME = "Orçamentos"
 
+EMAIL_RE = re.compile(r"^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$", re.IGNORECASE)
+INSTAGRAM_HANDLE_RE = re.compile(r"^[A-Za-z0-9._]{1,30}$")
+
 
 def configure_page(page_title: str) -> None:
     st.set_page_config(
@@ -1019,6 +1058,309 @@ def currency(value: float | int | None) -> str:
     number = float(value or 0)
     formatted = f"{number:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return f"R$ {formatted}"
+
+
+def normalize_whitespace(value: str | None) -> str:
+    return " ".join((value or "").split())
+
+
+def digits_only(value: str | None) -> str:
+    return "".join(char for char in (value or "") if char.isdigit())
+
+
+def format_phone(value: str | None) -> str:
+    digits = digits_only(value)
+    if len(digits) == 11:
+        return f"({digits[:2]}) {digits[2:7]}-{digits[7:]}"
+    if len(digits) == 10:
+        return f"({digits[:2]}) {digits[2:6]}-{digits[6:]}"
+    return (value or "").strip()
+
+
+def format_cnpj(value: str | None) -> str:
+    digits = digits_only(value)
+    if len(digits) != 14:
+        return (value or "").strip()
+    return f"{digits[:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:]}"
+
+
+def validate_required_text(value: str | None, field_label: str, min_length: int = 1) -> tuple[str, str | None]:
+    normalized = normalize_whitespace(value)
+    if not normalized:
+        return "", f"Informe {field_label.lower()}."
+    if len(normalized) < min_length:
+        return normalized, f"{field_label} deve ter pelo menos {min_length} caracteres."
+    return normalized, None
+
+
+def validate_optional_phone(value: str | None, field_label: str = "Telefone") -> tuple[str, str | None]:
+    raw = (value or "").strip()
+    if not raw:
+        return "", None
+
+    digits = digits_only(raw)
+    if len(digits) not in {10, 11}:
+        return raw, f"{field_label} deve ter DDD e 8 ou 9 digitos."
+
+    return format_phone(digits), None
+
+
+def validate_optional_email(value: str | None, field_label: str = "Email") -> tuple[str, str | None]:
+    normalized = normalize_whitespace(value).lower()
+    if not normalized:
+        return "", None
+    if not EMAIL_RE.fullmatch(normalized):
+        return normalized, f"{field_label} esta em um formato invalido."
+    return normalized, None
+
+
+def _calcular_digito_cnpj(base_digits: str) -> str:
+    if len(base_digits) == 12:
+        pesos = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    else:
+        pesos = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+
+    total = sum(int(digito) * peso for digito, peso in zip(base_digits, pesos))
+    resto = total % 11
+    return "0" if resto < 2 else str(11 - resto)
+
+
+def validate_optional_cnpj(value: str | None) -> tuple[str, str | None]:
+    raw = (value or "").strip()
+    if not raw:
+        return "", None
+
+    digits = digits_only(raw)
+    if len(digits) != 14:
+        return raw, "CNPJ deve conter 14 digitos."
+    if len(set(digits)) == 1:
+        return raw, "CNPJ esta em um formato invalido."
+
+    primeiro = _calcular_digito_cnpj(digits[:12])
+    segundo = _calcular_digito_cnpj(digits[:12] + primeiro)
+    if digits[-2:] != primeiro + segundo:
+        return raw, "CNPJ invalido. Confira os digitos informados."
+
+    return format_cnpj(digits), None
+
+
+def validate_optional_url(value: str | None, field_label: str = "Site") -> tuple[str, str | None]:
+    raw = normalize_whitespace(value)
+    if not raw:
+        return "", None
+
+    candidate = raw if "://" in raw else f"https://{raw}"
+    parsed = urlparse(candidate)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc or "." not in parsed.netloc:
+        return raw, f"{field_label} esta em um formato invalido."
+
+    return parsed.geturl().rstrip("/"), None
+
+
+def validate_optional_instagram(value: str | None) -> tuple[str, str | None]:
+    raw = normalize_whitespace(value)
+    if not raw:
+        return "", None
+
+    handle = raw
+    if "instagram.com" in raw.lower() or raw.lower().startswith("http"):
+        candidate = raw if "://" in raw else f"https://{raw}"
+        parsed = urlparse(candidate)
+        partes = [parte for parte in parsed.path.split("/") if parte]
+        handle = partes[0] if partes else ""
+
+    handle = handle.lstrip("@").strip().strip("/")
+    if not INSTAGRAM_HANDLE_RE.fullmatch(handle):
+        return raw, "Instagram deve ser um @usuario valido ou um link do Instagram."
+
+    return f"@{handle}", None
+
+
+def validate_client_payload(data: dict) -> tuple[dict, list[str]]:
+    cleaned = {
+        "nome": normalize_whitespace(data.get("nome")),
+        "telefone": "",
+        "email": "",
+        "endereco": normalize_whitespace(data.get("endereco")),
+        "observacoes": (data.get("observacoes") or "").strip(),
+    }
+    errors: list[str] = []
+
+    cleaned["nome"], error = validate_required_text(cleaned["nome"], "o nome do cliente", min_length=2)
+    if error:
+        errors.append(error)
+
+    cleaned["telefone"], error = validate_optional_phone(data.get("telefone"))
+    if error:
+        errors.append(error)
+
+    cleaned["email"], error = validate_optional_email(data.get("email"))
+    if error:
+        errors.append(error)
+
+    return cleaned, errors
+
+
+def validate_product_payload(data: dict) -> tuple[dict, list[str]]:
+    cleaned = {
+        "nome": normalize_whitespace(data.get("nome")),
+        "categoria": normalize_whitespace(data.get("categoria")),
+        "unidade": normalize_whitespace(data.get("unidade")),
+        "preco_unitario": float(data.get("preco_unitario") or 0.0),
+        "descricao": normalize_whitespace(data.get("descricao")),
+        "ativo": 1 if data.get("ativo") else 0,
+    }
+    errors: list[str] = []
+
+    cleaned["nome"], error = validate_required_text(cleaned["nome"], "o nome do item", min_length=2)
+    if error:
+        errors.append(error)
+
+    cleaned["categoria"], error = validate_required_text(cleaned["categoria"], "a categoria", min_length=2)
+    if error:
+        errors.append(error)
+
+    cleaned["unidade"], error = validate_required_text(cleaned["unidade"], "a unidade", min_length=1)
+    if error:
+        errors.append(error)
+
+    if cleaned["preco_unitario"] < 0:
+        errors.append("Preco unitario nao pode ser negativo.")
+
+    return cleaned, errors
+
+
+def validate_company_payload(data: dict) -> tuple[dict, list[str]]:
+    cleaned = {
+        "nome_fantasia": normalize_whitespace(data.get("nome_fantasia")),
+        "app_title": normalize_whitespace(data.get("app_title")),
+        "app_short_name": normalize_whitespace(data.get("app_short_name")),
+        "razao_social": normalize_whitespace(data.get("razao_social")),
+        "cnpj": "",
+        "telefone": "",
+        "email": "",
+        "endereco": normalize_whitespace(data.get("endereco")),
+        "cidade_estado": normalize_whitespace(data.get("cidade_estado")),
+        "website": "",
+        "instagram": "",
+        "logo_base64": data.get("logo_base64") or "",
+        "logo_mime": data.get("logo_mime") or "",
+        "logo_filename": data.get("logo_filename") or "",
+        "observacoes": (data.get("observacoes") or "").strip(),
+    }
+    errors: list[str] = []
+
+    cleaned["nome_fantasia"], error = validate_required_text(cleaned["nome_fantasia"], "o nome fantasia", min_length=2)
+    if error:
+        errors.append(error)
+
+    cleaned["app_title"], error = validate_required_text(cleaned["app_title"], "o titulo do app", min_length=2)
+    if error:
+        errors.append(error)
+
+    cleaned["app_short_name"], error = validate_required_text(
+        cleaned["app_short_name"], "o nome curto do app", min_length=2
+    )
+    if error:
+        errors.append(error)
+    elif len(cleaned["app_short_name"]) > 18:
+        errors.append("Nome curto do app deve ter no maximo 18 caracteres para caber melhor no celular.")
+
+    cleaned["cnpj"], error = validate_optional_cnpj(data.get("cnpj"))
+    if error:
+        errors.append(error)
+
+    cleaned["telefone"], error = validate_optional_phone(data.get("telefone"))
+    if error:
+        errors.append(error)
+
+    cleaned["email"], error = validate_optional_email(data.get("email"))
+    if error:
+        errors.append(error)
+
+    cleaned["website"], error = validate_optional_url(data.get("website"), field_label="Site")
+    if error:
+        errors.append(error)
+
+    cleaned["instagram"], error = validate_optional_instagram(data.get("instagram"))
+    if error:
+        errors.append(error)
+
+    return cleaned, errors
+
+
+def validate_quote_payload(data: dict, itens: list[dict]) -> tuple[dict, list[dict], list[str]]:
+    cleaned = {
+        "numero": normalize_whitespace(data.get("numero")),
+        "cliente_id": data.get("cliente_id"),
+        "data_orcamento": data.get("data_orcamento"),
+        "responsavel": normalize_whitespace(data.get("responsavel")),
+        "status": normalize_whitespace(data.get("status")),
+        "subtotal": float(data.get("subtotal") or 0.0),
+        "desconto_tipo": normalize_whitespace(data.get("desconto_tipo")),
+        "desconto_percentual": float(data.get("desconto_percentual") or 0.0),
+        "desconto_valor": float(data.get("desconto_valor") or 0.0),
+        "taxa_adicional": float(data.get("taxa_adicional") or 0.0),
+        "total_final": float(data.get("total_final") or 0.0),
+        "observacoes": (data.get("observacoes") or "").strip(),
+        "validade": data.get("validade"),
+        "metragem_total": float(data.get("metragem_total") or 0.0),
+        "prazo_execucao": normalize_whitespace(data.get("prazo_execucao")),
+        "forma_pagamento": normalize_whitespace(data.get("forma_pagamento")),
+    }
+    normalized_items: list[dict] = []
+    errors: list[str] = []
+
+    cleaned["responsavel"], error = validate_required_text(
+        cleaned["responsavel"], "o nome do responsavel pelo orcamento", min_length=3
+    )
+    if error:
+        errors.append(error)
+
+    if not cleaned["cliente_id"]:
+        errors.append("Selecione um cliente para o orcamento.")
+
+    data_orcamento = cleaned["data_orcamento"]
+    validade = cleaned["validade"]
+    if isinstance(data_orcamento, str):
+        data_orcamento = date.fromisoformat(data_orcamento)
+    if isinstance(validade, str):
+        validade = date.fromisoformat(validade)
+    if isinstance(data_orcamento, date) and isinstance(validade, date) and validade < data_orcamento:
+        errors.append("Validade do orcamento nao pode ser anterior a data do orcamento.")
+
+    if cleaned["metragem_total"] < 0:
+        errors.append("Metragem total nao pode ser negativa.")
+
+    if not itens:
+        errors.append("Adicione pelo menos um item antes de salvar.")
+
+    for index, item in enumerate(itens, start=1):
+        quantidade = float(item.get("quantidade") or 0.0)
+        valor_unitario = float(item.get("valor_unitario") or 0.0)
+        item_nome = normalize_whitespace(item.get("item_nome"))
+
+        if not item_nome:
+            errors.append(f"O item {index} esta sem nome.")
+        if quantidade <= 0:
+            errors.append(f"O item {index} deve ter quantidade maior que zero.")
+        if valor_unitario < 0:
+            errors.append(f"O item {index} nao pode ter valor unitario negativo.")
+
+        normalized_items.append(
+            {
+                "produto_id": item.get("produto_id"),
+                "item_nome": item_nome,
+                "categoria": normalize_whitespace(item.get("categoria")),
+                "unidade": normalize_whitespace(item.get("unidade")),
+                "quantidade": quantidade,
+                "valor_unitario": valor_unitario,
+                "subtotal": round(quantidade * valor_unitario, 2),
+                "observacoes": (item.get("observacoes") or "").strip(),
+            }
+        )
+
+    return cleaned, normalized_items, errors
 
 
 def get_logo_bytes(company_info: dict | None = None) -> bytes | None:
@@ -1173,6 +1515,7 @@ def inject_custom_css(page_title: str) -> None:
                 box-shadow: 0 0 0 2px rgba(255, 75, 75, 0.18);
             }
             .stButton > button,
+            [data-testid="stFormSubmitButton"] > button,
             .stDownloadButton > button,
             [data-testid="stLinkButton"] a {
                 background: linear-gradient(180deg, var(--brand) 0%, var(--brand-strong) 100%);
@@ -1183,6 +1526,10 @@ def inject_custom_css(page_title: str) -> None:
                 box-shadow: 0 6px 14px rgba(255, 75, 75, 0.18);
             }
             .stButton > button *,
+            [data-testid="stFormSubmitButton"] > button *,
+            [data-testid="stFormSubmitButton"] > button p,
+            [data-testid="stFormSubmitButton"] > button span,
+            [data-testid="stFormSubmitButton"] > button [data-testid="stMarkdownContainer"] p,
             .stButton > button p,
             .stButton > button span,
             .stButton > button [data-testid="stMarkdownContainer"] p,
@@ -1200,11 +1547,28 @@ def inject_custom_css(page_title: str) -> None:
                 text-decoration: none !important;
             }
             .stButton > button:hover,
+            [data-testid="stFormSubmitButton"] > button:hover,
             .stDownloadButton > button:hover,
             [data-testid="stLinkButton"] a:hover {
                 background: linear-gradient(180deg, #ff6b6b 0%, #e03e3e 100%);
                 border-color: #d13737;
                 color: #ffffff;
+            }
+            [data-testid="stFormSubmitButton"] > button:disabled,
+            [data-testid="stFormSubmitButton"] > button[disabled] {
+                background: linear-gradient(180deg, #ff8585 0%, #f06363 100%);
+                border-color: #ea6a6a;
+                color: #ffffff !important;
+                opacity: 1;
+            }
+            [data-testid="stFormSubmitButton"] > button:disabled *,
+            [data-testid="stFormSubmitButton"] > button[disabled] *,
+            [data-testid="stFormSubmitButton"] > button:disabled p,
+            [data-testid="stFormSubmitButton"] > button[disabled] p,
+            [data-testid="stFormSubmitButton"] > button:disabled span,
+            [data-testid="stFormSubmitButton"] > button[disabled] span {
+                color: #ffffff !important;
+                -webkit-text-fill-color: #ffffff !important;
             }
             .stButton > button[kind="secondary"],
             [data-testid="stLinkButton"] a[kind="secondary"] {
@@ -1483,6 +1847,10 @@ def inject_custom_css(page_title: str) -> None:
                 padding: 1.6rem;
                 box-shadow: var(--shadow-soft);
             }
+            .login-card label {
+                color: var(--text-main) !important;
+                font-weight: 600;
+            }
             .login-card__header {
                 margin-bottom: 1rem;
             }
@@ -1493,6 +1861,20 @@ def inject_custom_css(page_title: str) -> None:
             .login-card__header p {
                 margin: 0.35rem 0 0 0;
                 color: var(--text-muted);
+            }
+            .login-card [data-testid="stForm"] {
+                background: transparent;
+                border: none;
+                box-shadow: none;
+                padding: 0;
+            }
+            .login-card div[data-baseweb="input"] > div {
+                background: #ffffff;
+                border: 1px solid #cfd6e4;
+            }
+            .login-card div[data-baseweb="input"] input {
+                color: var(--text-main) !important;
+                -webkit-text-fill-color: var(--text-main) !important;
             }
             .sidebar-company-card,
             .sidebar-user-card {
@@ -1623,6 +2005,27 @@ def logout() -> None:
     st.rerun()
 
 
+def restore_sidebar_visibility() -> None:
+    components.html(
+        """
+        <script>
+            const doc = window.parent.document;
+            const sidebar = doc.querySelector('[data-testid="stSidebar"]');
+            const collapsed = doc.querySelector('[data-testid="collapsedControl"]');
+            if (sidebar) {
+                sidebar.style.display = '';
+                sidebar.style.visibility = 'visible';
+            }
+            if (collapsed) {
+                collapsed.style.display = '';
+                collapsed.style.visibility = 'visible';
+            }
+        </script>
+        """,
+        height=0,
+    )
+
+
 def ensure_authenticated(page_title: str) -> dict:
     auth_user = st.session_state.get(AUTH_SESSION_KEY)
     if auth_user:
@@ -1731,6 +2134,8 @@ def render_sidebar_branding(page_title: str) -> None:
     company = get_company_info()
     logo_bytes = get_logo_bytes(company)
     auth_user = st.session_state.get(AUTH_SESSION_KEY, {})
+
+    restore_sidebar_visibility()
 
     with st.sidebar:
         if logo_bytes:
@@ -2461,13 +2866,13 @@ def calcular_totais(
     taxa_adicional = max(0.0, sanitize_money(taxa_adicional))
 
     desconto_aplicado = 0.0
-    desconto_percentual = max(0.0, sanitize_money(desconto_percentual))
+    desconto_percentual = min(100.0, max(0.0, sanitize_money(desconto_percentual)))
     desconto_valor = max(0.0, sanitize_money(desconto_valor))
 
     if desconto_tipo == "Percentual" and subtotal > 0:
-        desconto_aplicado = round(subtotal * (desconto_percentual / 100), 2)
+        desconto_aplicado = min(subtotal, round(subtotal * (desconto_percentual / 100), 2))
     elif desconto_tipo == "Valor fixo":
-        desconto_aplicado = min(subtotal, desconto_valor)
+        desconto_aplicado = round(min(subtotal, desconto_valor), 2)
 
     total_final = max(0.0, round(subtotal - desconto_aplicado + taxa_adicional, 2))
 
@@ -2489,7 +2894,7 @@ import streamlit as st
 from components import render_data_hint, render_empty_state, render_page_header, render_section_header, setup_page
 from database import create_product, delete_product, get_product, get_product_categories, list_products, update_product
 from models import CATEGORIAS_PADRAO, UNIDADES_PADRAO
-from utils import currency
+from utils import currency, validate_product_payload
 
 
 PAGE_TITLE = "Produtos e Servicos"
@@ -2537,19 +2942,21 @@ with st.container(border=True):
         if submitted:
             categoria = resolve_category(categoria_opcao, categoria_custom)
             unidade = resolve_unit(unidade_opcao, unidade_custom)
-            if not nome.strip() or not categoria or not unidade:
-                st.error("Preencha nome, categoria e unidade para cadastrar o item.")
+            payload, errors = validate_product_payload(
+                {
+                    "nome": nome,
+                    "categoria": categoria,
+                    "unidade": unidade,
+                    "preco_unitario": preco_unitario,
+                    "descricao": descricao,
+                    "ativo": ativo,
+                }
+            )
+            if errors:
+                for error in errors:
+                    st.error(error)
             else:
-                create_product(
-                    {
-                        "nome": nome.strip(),
-                        "categoria": categoria,
-                        "unidade": unidade,
-                        "preco_unitario": float(preco_unitario),
-                        "descricao": descricao.strip(),
-                        "ativo": 1 if ativo else 0,
-                    }
-                )
+                create_product(payload)
                 st.success("Item cadastrado com sucesso.")
                 st.rerun()
 
@@ -2661,20 +3068,21 @@ if produto_edicao_id:
             if salvar:
                 categoria = resolve_category(categoria_opcao, categoria_custom)
                 unidade = resolve_unit(unidade_opcao, unidade_custom)
-                if not nome.strip() or not categoria or not unidade:
-                    st.error("Preencha nome, categoria e unidade para salvar o item.")
+                payload, errors = validate_product_payload(
+                    {
+                        "nome": nome,
+                        "categoria": categoria,
+                        "unidade": unidade,
+                        "preco_unitario": preco_unitario,
+                        "descricao": descricao,
+                        "ativo": ativo,
+                    }
+                )
+                if errors:
+                    for error in errors:
+                        st.error(error)
                 else:
-                    update_product(
-                        produto_edicao_id,
-                        {
-                            "nome": nome.strip(),
-                            "categoria": categoria,
-                            "unidade": unidade,
-                            "preco_unitario": float(preco_unitario),
-                            "descricao": descricao.strip(),
-                            "ativo": 1 if ativo else 0,
-                        },
-                    )
+                    update_product(produto_edicao_id, payload)
                     st.success("Item atualizado com sucesso.")
                     del st.session_state["produto_edicao_id"]
                     st.rerun()
@@ -2689,6 +3097,7 @@ import streamlit as st
 
 from components import render_data_hint, render_empty_state, render_page_header, render_section_header, setup_page
 from database import create_client, delete_client, get_client, list_clients, update_client
+from utils import validate_client_payload
 
 
 PAGE_TITLE = "Clientes"
@@ -2714,18 +3123,20 @@ with st.container(border=True):
         salvar = st.form_submit_button("Cadastrar cliente", use_container_width=True)
 
         if salvar:
-            if not nome.strip():
-                st.error("Informe o nome do cliente.")
+            payload, errors = validate_client_payload(
+                {
+                    "nome": nome,
+                    "telefone": telefone,
+                    "email": email,
+                    "endereco": endereco,
+                    "observacoes": observacoes,
+                }
+            )
+            if errors:
+                for error in errors:
+                    st.error(error)
             else:
-                create_client(
-                    {
-                        "nome": nome.strip(),
-                        "telefone": telefone.strip(),
-                        "email": email.strip(),
-                        "endereco": endereco.strip(),
-                        "observacoes": observacoes.strip(),
-                    }
-                )
+                create_client(payload)
                 st.success("Cliente cadastrado com sucesso.")
                 st.rerun()
 
@@ -2793,19 +3204,20 @@ if cliente_edicao_id:
             cancelar = cancel_col.form_submit_button("Cancelar", use_container_width=True)
 
             if salvar:
-                if not nome.strip():
-                    st.error("Informe o nome do cliente.")
+                payload, errors = validate_client_payload(
+                    {
+                        "nome": nome,
+                        "telefone": telefone,
+                        "email": email,
+                        "endereco": endereco,
+                        "observacoes": observacoes,
+                    }
+                )
+                if errors:
+                    for error in errors:
+                        st.error(error)
                 else:
-                    update_client(
-                        cliente_edicao_id,
-                        {
-                            "nome": nome.strip(),
-                            "telefone": telefone.strip(),
-                            "email": email.strip(),
-                            "endereco": endereco.strip(),
-                            "observacoes": observacoes.strip(),
-                        },
-                    )
+                    update_client(cliente_edicao_id, payload)
                     st.success("Cliente atualizado com sucesso.")
                     del st.session_state["cliente_edicao_id"]
                     st.rerun()
@@ -2816,6 +3228,7 @@ if cliente_edicao_id:
 ----- pages\3_Novo_Orcamento.py -----
 from __future__ import annotations
 
+import math
 from datetime import date
 
 import streamlit as st
@@ -2831,7 +3244,7 @@ from components import (
 from database import create_orcamento, get_next_quote_number, get_orcamento, list_clients, list_products
 from models import STATUS_ORCAMENTO, TIPOS_DESCONTO
 from services.calculations import calcular_subtotal_item, calcular_totais
-from utils import currency, default_validity_date, init_quote_state, load_quote_into_state, reset_quote_state
+from utils import currency, default_validity_date, init_quote_state, load_quote_into_state, reset_quote_state, validate_quote_payload
 
 
 PAGE_TITLE = "Novo Orcamento"
@@ -2857,6 +3270,103 @@ def carregar_preco_padrao() -> None:
     if produto:
         st.session_state["item_valor_unitario"] = float(produto["preco_unitario"])
         st.session_state["item_quantidade"] = 1.0
+
+
+def sincronizar_desconto_com_tipo() -> None:
+    desconto_tipo = st.session_state.get("orc_desconto_tipo", "Nenhum")
+    if desconto_tipo == "Percentual":
+        st.session_state["orc_desconto_valor"] = 0.0
+    elif desconto_tipo == "Valor fixo":
+        st.session_state["orc_desconto_percentual"] = 0.0
+    else:
+        st.session_state["orc_desconto_percentual"] = 0.0
+        st.session_state["orc_desconto_valor"] = 0.0
+
+
+def adicionar_item_ao_orcamento() -> None:
+    produto_id = st.session_state.get("item_produto_id")
+    produto_selecionado = produto_map.get(produto_id)
+    quantidade = float(st.session_state.get("item_quantidade") or 0.0)
+    valor_unitario = float(st.session_state.get("item_valor_unitario") or 0.0)
+
+    if not produto_selecionado:
+        st.session_state["item_feedback"] = ("error", "Selecione um item valido antes de adicionar.")
+        return
+    if quantidade <= 0:
+        st.session_state["item_feedback"] = ("error", "A quantidade deve ser maior que zero.")
+        return
+    if valor_unitario < 0:
+        st.session_state["item_feedback"] = ("error", "O valor unitario nao pode ser negativo.")
+        return
+
+    st.session_state["orcamento_itens_temp"].append(
+        {
+            "produto_id": produto_selecionado["id"],
+            "item_nome": produto_selecionado["nome"],
+            "categoria": produto_selecionado["categoria"],
+            "unidade": produto_selecionado["unidade"],
+            "quantidade": quantidade,
+            "valor_unitario": valor_unitario,
+            "subtotal": calcular_subtotal_item(quantidade, valor_unitario),
+            "observacoes": st.session_state.get("item_observacoes", "").strip(),
+        }
+    )
+    st.session_state["item_quantidade"] = 1.0
+    st.session_state["item_valor_unitario"] = float(produto_selecionado["preco_unitario"])
+    st.session_state["item_observacoes"] = ""
+    st.session_state["item_feedback"] = ("success", "Item adicionado com sucesso.")
+
+
+def _is_missing_value(value: object) -> bool:
+    return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def _text_or_empty(value: object) -> str:
+    if _is_missing_value(value):
+        return ""
+    return str(value)
+
+
+def montar_tabela_itens(itens: list[dict]) -> list[dict]:
+    return [
+        {
+            "_produto_id": item["produto_id"],
+            "Item": item["item_nome"],
+            "Categoria": item["categoria"],
+            "Unidade": item["unidade"],
+            "Quantidade": float(item["quantidade"]),
+            "Valor unitario": float(item["valor_unitario"]),
+            "Subtotal": float(item["subtotal"]),
+            "Observacao": item["observacoes"] or "",
+            "Excluir": False,
+        }
+        for item in itens
+    ]
+
+
+def normalizar_itens_editados(editor_rows: list[dict]) -> list[dict]:
+    itens_normalizados = []
+    for row in editor_rows:
+        if bool(row.get("Excluir")):
+            continue
+
+        quantidade = float(row.get("Quantidade") or 0.0)
+        valor_unitario = float(row.get("Valor unitario") or 0.0)
+
+        itens_normalizados.append(
+            {
+                "produto_id": int(row["_produto_id"]),
+                "item_nome": _text_or_empty(row.get("Item")),
+                "categoria": _text_or_empty(row.get("Categoria")),
+                "unidade": _text_or_empty(row.get("Unidade")),
+                "quantidade": quantidade,
+                "valor_unitario": valor_unitario,
+                "subtotal": calcular_subtotal_item(quantidade, valor_unitario),
+                "observacoes": _text_or_empty(row.get("Observacao")).strip(),
+            }
+        )
+
+    return itens_normalizados
 
 
 if "item_quantidade" not in st.session_state:
@@ -2886,143 +3396,116 @@ if st.session_state["orc_cliente_id"] not in cliente_ids:
 
 render_data_hint(
     "Fluxo recomendado",
-    "Preencha os dados principais, adicione os itens do servico e revise os totais antes de salvar o documento.",
+    "Preencha os dados principais, adicione os itens e ajuste a propria lista antes de salvar o documento.",
 )
 
-col_meta, col_itens = st.columns([1.15, 1.2], gap="large")
+render_section_header("Dados principais", "Informacoes gerais do documento e da execucao prevista.")
+with st.container(border=True):
+    numero_orcamento = get_next_quote_number()
+    st.text_input("Numero do orcamento", value=numero_orcamento, disabled=True)
 
-with col_meta:
-    render_section_header("Dados principais", "Informacoes gerais do documento e da execucao prevista.")
-    with st.container(border=True):
-        numero_orcamento = get_next_quote_number()
-        st.text_input("Numero do orcamento", value=numero_orcamento, disabled=True)
+    cliente_opcoes = {cliente["id"]: cliente["nome"] for cliente in clientes}
+    st.selectbox(
+        "Cliente *",
+        options=cliente_ids,
+        format_func=lambda client_id: cliente_opcoes[client_id],
+        key="orc_cliente_id",
+    )
+    st.date_input("Data do orcamento *", key="orc_data")
+    st.text_input("Responsavel pelo orcamento *", key="orc_responsavel")
+    st.selectbox("Status", STATUS_ORCAMENTO, key="orc_status")
+    st.date_input("Validade do orcamento", key="orc_validade")
+    st.number_input("Metragem total da obra (m2)", min_value=0.0, step=1.0, key="orc_metragem_total")
+    st.text_input("Prazo estimado da execucao", key="orc_prazo_execucao")
+    st.text_input("Forma de pagamento", key="orc_forma_pagamento")
+    st.text_area("Observacoes gerais", key="orc_observacoes", height=140)
 
-        cliente_opcoes = {cliente["id"]: cliente["nome"] for cliente in clientes}
+render_section_header("Adicionar item", "Selecione um item ativo do catalogo e ajuste quantidade, preco e observacoes.")
+with st.container(border=True):
+    if produtos_ativos:
+        produto_ids = [produto["id"] for produto in produtos_ativos]
         st.selectbox(
-            "Cliente *",
-            options=cliente_ids,
-            format_func=lambda client_id: cliente_opcoes[client_id],
-            key="orc_cliente_id",
+            "Item cadastrado *",
+            options=produto_ids,
+            format_func=lambda produto_id: f"{produto_map[produto_id]['nome']} ({produto_map[produto_id]['unidade']})",
+            key="item_produto_id",
+            on_change=carregar_preco_padrao,
         )
-        st.date_input("Data do orcamento *", key="orc_data")
-        st.text_input("Responsavel pelo orcamento *", key="orc_responsavel")
-        st.selectbox("Status", STATUS_ORCAMENTO, key="orc_status")
-        st.date_input("Validade do orcamento", key="orc_validade")
-        st.number_input("Metragem total da obra (m2)", min_value=0.0, step=1.0, key="orc_metragem_total")
-        st.text_input("Prazo estimado da execucao", key="orc_prazo_execucao")
-        st.text_input("Forma de pagamento", key="orc_forma_pagamento")
-        st.text_area("Observacoes gerais", key="orc_observacoes", height=140)
+        produto_selecionado = produto_map[st.session_state["item_produto_id"]]
+        st.caption(
+            f"Categoria: {produto_selecionado['categoria']} | Preco padrao: {currency(produto_selecionado['preco_unitario'])}"
+        )
+        i1, i2 = st.columns(2)
+        i1.number_input("Quantidade *", min_value=0.0, step=1.0, key="item_quantidade")
+        i2.number_input("Valor unitario *", min_value=0.0, step=1.0, format="%.2f", key="item_valor_unitario")
+        st.text_area("Observacao do item", key="item_observacoes", height=90)
 
-with col_itens:
-    render_section_header("Adicionar item", "Selecione um item ativo do catalogo e ajuste quantidade, preco e observacoes.")
-    with st.container(border=True):
-        if produtos_ativos:
-            produto_ids = [produto["id"] for produto in produtos_ativos]
-            st.selectbox(
-                "Item cadastrado *",
-                options=produto_ids,
-                format_func=lambda produto_id: f"{produto_map[produto_id]['nome']} ({produto_map[produto_id]['unidade']})",
-                key="item_produto_id",
-                on_change=carregar_preco_padrao,
-            )
-            produto_selecionado = produto_map[st.session_state["item_produto_id"]]
-            st.caption(
-                f"Categoria: {produto_selecionado['categoria']} | Preco padrao: {currency(produto_selecionado['preco_unitario'])}"
-            )
-            i1, i2 = st.columns(2)
-            i1.number_input("Quantidade *", min_value=0.0, step=1.0, key="item_quantidade")
-            i2.number_input("Valor unitario *", min_value=0.0, step=1.0, format="%.2f", key="item_valor_unitario")
-            st.text_area("Observacao do item", key="item_observacoes", height=90)
+        subtotal_preview = calcular_subtotal_item(st.session_state["item_quantidade"], st.session_state["item_valor_unitario"])
+        render_data_hint("Preview do item", f"Subtotal atual: {currency(subtotal_preview)}")
 
-            subtotal_preview = calcular_subtotal_item(
-                st.session_state["item_quantidade"], st.session_state["item_valor_unitario"]
-            )
-            render_data_hint("Preview do item", f"Subtotal atual: {currency(subtotal_preview)}")
+        st.button("Adicionar item ao orcamento", use_container_width=True, on_click=adicionar_item_ao_orcamento)
 
-            if st.button("Adicionar item ao orcamento", use_container_width=True):
-                quantidade = float(st.session_state["item_quantidade"])
-                valor_unitario = float(st.session_state["item_valor_unitario"])
-                if quantidade <= 0:
-                    st.error("A quantidade deve ser maior que zero.")
-                elif valor_unitario < 0:
-                    st.error("O valor unitario nao pode ser negativo.")
-                else:
-                    st.session_state["orcamento_itens_temp"].append(
-                        {
-                            "produto_id": produto_selecionado["id"],
-                            "item_nome": produto_selecionado["nome"],
-                            "categoria": produto_selecionado["categoria"],
-                            "unidade": produto_selecionado["unidade"],
-                            "quantidade": quantidade,
-                            "valor_unitario": valor_unitario,
-                            "subtotal": subtotal_preview,
-                            "observacoes": st.session_state["item_observacoes"].strip(),
-                        }
-                    )
-                    st.session_state["item_quantidade"] = 1.0
-                    st.session_state["item_valor_unitario"] = float(produto_selecionado["preco_unitario"])
-                    st.session_state["item_observacoes"] = ""
-                    st.success("Item adicionado com sucesso.")
-                    st.rerun()
-        else:
-            render_empty_state(
-                "Nenhum item ativo encontrado",
-                "Cadastre produtos ou servicos ativos antes de montar um novo orcamento.",
-            )
+        item_feedback = st.session_state.pop("item_feedback", None)
+        if item_feedback:
+            feedback_tipo, feedback_texto = item_feedback
+            if feedback_tipo == "success":
+                st.success(feedback_texto)
+            else:
+                st.error(feedback_texto)
+    else:
+        render_empty_state(
+            "Nenhum item ativo encontrado",
+            "Cadastre produtos ou servicos ativos antes de montar um novo orcamento.",
+        )
 
 render_section_header("Itens do orcamento", "Confira os itens adicionados e remova linhas quando necessario.")
 itens_temp = st.session_state["orcamento_itens_temp"]
 if itens_temp:
-    st.dataframe(
-        [
-            {
-                "Item": item["item_nome"],
-                "Categoria": item["categoria"],
-                "Unidade": item["unidade"],
-                "Quantidade": item["quantidade"],
-                "Valor unitario": currency(item["valor_unitario"]),
-                "Subtotal": currency(item["subtotal"]),
-                "Observacao": item["observacoes"] or "-",
-            }
-            for item in itens_temp
-        ],
+    st.caption("Edite quantidade e valor unitario diretamente na lista. Marque `Excluir` para remover um item.")
+    editor_df = st.data_editor(
+        montar_tabela_itens(itens_temp),
         use_container_width=True,
         hide_index=True,
+        num_rows="fixed",
+        disabled=["_produto_id", "Item", "Categoria", "Unidade", "Subtotal", "Observacao"],
+        column_config={
+            "_produto_id": None,
+            "Quantidade": st.column_config.NumberColumn("Quantidade", min_value=0.01, step=1.0, format="%.2f"),
+            "Valor unitario": st.column_config.NumberColumn(
+                "Valor unitario", min_value=0.0, step=1.0, format="%.2f"
+            ),
+            "Subtotal": st.column_config.NumberColumn("Subtotal", format="%.2f"),
+            "Excluir": st.column_config.CheckboxColumn("Excluir", help="Marque para remover o item da lista."),
+        },
     )
 
-    indices = list(range(len(itens_temp)))
-    r1, r2 = st.columns([2, 1])
-    remover_idx = r1.selectbox(
-        "Selecione um item para remover",
-        options=indices,
-        format_func=lambda index: f"{index + 1} - {itens_temp[index]['item_nome']}",
-    )
-    if r2.button("Remover item", use_container_width=True):
-        itens_temp.pop(remover_idx)
-        st.success("Item removido do orcamento.")
+    itens_editados = normalizar_itens_editados(editor_df)
+    if itens_editados != itens_temp:
+        st.session_state["orcamento_itens_temp"] = itens_editados
+        itens_temp = itens_editados
         st.rerun()
 else:
     render_empty_state("Seu rascunho ainda nao tem itens", "Adicione pelo menos um item para liberar o salvamento do documento.")
 
 render_section_header("Calculo automatico", "Desconto e taxa adicional sao aplicados automaticamente sobre o subtotal.")
 t1, t2, t3 = st.columns(3)
-t1.selectbox("Tipo de desconto", TIPOS_DESCONTO, key="orc_desconto_tipo")
-if st.session_state["orc_desconto_tipo"] == "Percentual":
+t1.selectbox("Tipo de desconto", TIPOS_DESCONTO, key="orc_desconto_tipo", on_change=sincronizar_desconto_com_tipo)
+desconto_tipo = st.session_state["orc_desconto_tipo"]
+
+if desconto_tipo == "Percentual":
     t2.number_input("Desconto (%)", min_value=0.0, max_value=100.0, step=1.0, key="orc_desconto_percentual")
-    st.session_state["orc_desconto_valor"] = 0.0
-elif st.session_state["orc_desconto_tipo"] == "Valor fixo":
+elif desconto_tipo == "Valor fixo":
     t2.number_input("Desconto em valor", min_value=0.0, step=1.0, format="%.2f", key="orc_desconto_valor")
-    st.session_state["orc_desconto_percentual"] = 0.0
-else:
-    st.session_state["orc_desconto_percentual"] = 0.0
-    st.session_state["orc_desconto_valor"] = 0.0
 t3.number_input("Taxa adicional", min_value=0.0, step=1.0, format="%.2f", key="orc_taxa_adicional")
+
+desconto_percentual = float(st.session_state["orc_desconto_percentual"]) if desconto_tipo == "Percentual" else 0.0
+desconto_valor = float(st.session_state["orc_desconto_valor"]) if desconto_tipo == "Valor fixo" else 0.0
 
 totais = calcular_totais(
     itens_temp,
-    desconto_tipo=st.session_state["orc_desconto_tipo"],
-    desconto_percentual=st.session_state["orc_desconto_percentual"],
-    desconto_valor=st.session_state["orc_desconto_valor"],
+    desconto_tipo=desconto_tipo,
+    desconto_percentual=desconto_percentual,
+    desconto_valor=desconto_valor,
     taxa_adicional=st.session_state["orc_taxa_adicional"],
 )
 
@@ -3039,34 +3522,35 @@ with tc4:
 s1, s2 = st.columns([1, 1])
 if s1.button("Salvar orcamento", use_container_width=True, type="primary"):
     numero_orcamento = get_next_quote_number()
-    if not st.session_state["orc_responsavel"].strip():
-        st.error("Informe o nome do responsavel pelo orcamento.")
-    elif not itens_temp:
-        st.error("Adicione pelo menos um item antes de salvar.")
+    payload, itens_normalizados, errors = validate_quote_payload(
+        {
+            "numero": numero_orcamento,
+            "cliente_id": st.session_state["orc_cliente_id"],
+            "data_orcamento": st.session_state["orc_data"].isoformat(),
+            "responsavel": st.session_state["orc_responsavel"],
+            "status": st.session_state["orc_status"],
+            "subtotal": totais["subtotal"],
+            "desconto_tipo": totais["desconto_tipo"],
+            "desconto_percentual": totais["desconto_percentual"],
+            "desconto_valor": totais["desconto_valor"],
+            "taxa_adicional": totais["taxa_adicional"],
+            "total_final": totais["total_final"],
+            "observacoes": st.session_state["orc_observacoes"],
+            "validade": st.session_state["orc_validade"].isoformat()
+            if isinstance(st.session_state["orc_validade"], date)
+            else default_validity_date().isoformat(),
+            "metragem_total": float(st.session_state["orc_metragem_total"]),
+            "prazo_execucao": st.session_state["orc_prazo_execucao"],
+            "forma_pagamento": st.session_state["orc_forma_pagamento"],
+        },
+        itens_temp,
+    )
+    if errors:
+        for error in errors:
+            st.error(error)
     else:
-        create_orcamento(
-            {
-                "numero": numero_orcamento,
-                "cliente_id": st.session_state["orc_cliente_id"],
-                "data_orcamento": st.session_state["orc_data"].isoformat(),
-                "responsavel": st.session_state["orc_responsavel"].strip(),
-                "status": st.session_state["orc_status"],
-                "subtotal": totais["subtotal"],
-                "desconto_tipo": totais["desconto_tipo"],
-                "desconto_percentual": totais["desconto_percentual"],
-                "desconto_valor": totais["desconto_valor"],
-                "taxa_adicional": totais["taxa_adicional"],
-                "total_final": totais["total_final"],
-                "observacoes": st.session_state["orc_observacoes"].strip(),
-                "validade": st.session_state["orc_validade"].isoformat()
-                if isinstance(st.session_state["orc_validade"], date)
-                else default_validity_date().isoformat(),
-                "metragem_total": float(st.session_state["orc_metragem_total"]),
-                "prazo_execucao": st.session_state["orc_prazo_execucao"].strip(),
-                "forma_pagamento": st.session_state["orc_forma_pagamento"].strip(),
-            },
-            itens_temp,
-        )
+        st.session_state["orcamento_itens_temp"] = itens_normalizados
+        create_orcamento(payload, itens_normalizados)
         reset_quote_state()
         st.success("Orcamento salvo com sucesso.")
         st.rerun()
@@ -3281,7 +3765,7 @@ import streamlit as st
 
 from components import render_data_hint, render_empty_state, render_page_header, render_section_header, setup_page
 from database import get_company_info, upsert_company_info
-from utils import get_logo_bytes
+from utils import get_logo_bytes, validate_company_payload
 
 
 PAGE_TITLE = "Configuracoes"
@@ -3351,43 +3835,51 @@ with st.form("form_configuracoes_empresa"):
     salvar = st.form_submit_button("Salvar configuracoes", use_container_width=True)
 
     if salvar:
-        if not nome_fantasia.strip():
-            st.error("Informe pelo menos o nome fantasia da empresa.")
-        elif not app_title.strip():
-            st.error("Informe o titulo do app.")
-        elif not app_short_name.strip():
-            st.error("Informe o nome curto do app.")
-        elif logo_file is not None and len(logo_file.getvalue()) > MAX_LOGO_SIZE:
+        if logo_file is not None and len(logo_file.getvalue()) > MAX_LOGO_SIZE:
             st.error("A logo excede o limite de 2 MB.")
         else:
-            data = {
-                "nome_fantasia": nome_fantasia.strip(),
-                "app_title": app_title.strip(),
-                "app_short_name": app_short_name.strip(),
-                "razao_social": razao_social.strip(),
-                "cnpj": cnpj.strip(),
-                "telefone": telefone.strip(),
-                "email": email.strip(),
-                "endereco": endereco.strip(),
-                "cidade_estado": cidade_estado.strip(),
-                "website": website.strip(),
-                "instagram": instagram.strip(),
-                "logo_base64": company.get("logo_base64") or "",
-                "logo_mime": company.get("logo_mime") or "",
-                "logo_filename": company.get("logo_filename") or "",
-                "observacoes": observacoes.strip(),
-            }
+            data, errors = validate_company_payload(
+                {
+                    "nome_fantasia": nome_fantasia,
+                    "app_title": app_title,
+                    "app_short_name": app_short_name,
+                    "razao_social": razao_social,
+                    "cnpj": cnpj,
+                    "telefone": telefone,
+                    "email": email,
+                    "endereco": endereco,
+                    "cidade_estado": cidade_estado,
+                    "website": website,
+                    "instagram": instagram,
+                    "observacoes": observacoes,
+                    "logo_base64": company.get("logo_base64") or "",
+                    "logo_mime": company.get("logo_mime") or "",
+                    "logo_filename": company.get("logo_filename") or "",
+                }
+            )
 
-            if remover_logo:
-                data["logo_base64"] = ""
-                data["logo_mime"] = ""
-                data["logo_filename"] = ""
-            elif logo_file is not None:
-                logo_bytes = logo_file.getvalue()
-                data["logo_base64"] = base64.b64encode(logo_bytes).decode("ascii")
-                data["logo_mime"] = logo_file.type or "image/png"
-                data["logo_filename"] = logo_file.name
+            if errors:
+                for error in errors:
+                    st.error(error)
+            else:
+                data.update(
+                    {
+                        "logo_base64": company.get("logo_base64") or "",
+                        "logo_mime": company.get("logo_mime") or "",
+                        "logo_filename": company.get("logo_filename") or "",
+                    }
+                )
 
-            upsert_company_info(data)
-            st.success("Configuracoes salvas com sucesso.")
-            st.rerun()
+                if remover_logo:
+                    data["logo_base64"] = ""
+                    data["logo_mime"] = ""
+                    data["logo_filename"] = ""
+                elif logo_file is not None:
+                    logo_bytes = logo_file.getvalue()
+                    data["logo_base64"] = base64.b64encode(logo_bytes).decode("ascii")
+                    data["logo_mime"] = logo_file.type or "image/png"
+                    data["logo_filename"] = logo_file.name
+
+                upsert_company_info(data)
+                st.success("Configuracoes salvas com sucesso.")
+                st.rerun()

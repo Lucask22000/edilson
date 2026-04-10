@@ -3,9 +3,10 @@ from __future__ import annotations
 import base64
 import html
 import json
+import re
 from datetime import date, timedelta
 from io import BytesIO
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -27,6 +28,9 @@ AUTH_SESSION_KEY = "auth_user"
 DEFAULT_APP_TITLE = "Orçamentos de Pintura"
 DEFAULT_APP_SHORT_NAME = "Orçamentos"
 
+EMAIL_RE = re.compile(r"^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$", re.IGNORECASE)
+INSTAGRAM_HANDLE_RE = re.compile(r"^[A-Za-z0-9._]{1,30}$")
+
 
 def configure_page(page_title: str) -> None:
     st.set_page_config(
@@ -46,6 +50,309 @@ def currency(value: float | int | None) -> str:
     number = float(value or 0)
     formatted = f"{number:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return f"R$ {formatted}"
+
+
+def normalize_whitespace(value: str | None) -> str:
+    return " ".join((value or "").split())
+
+
+def digits_only(value: str | None) -> str:
+    return "".join(char for char in (value or "") if char.isdigit())
+
+
+def format_phone(value: str | None) -> str:
+    digits = digits_only(value)
+    if len(digits) == 11:
+        return f"({digits[:2]}) {digits[2:7]}-{digits[7:]}"
+    if len(digits) == 10:
+        return f"({digits[:2]}) {digits[2:6]}-{digits[6:]}"
+    return (value or "").strip()
+
+
+def format_cnpj(value: str | None) -> str:
+    digits = digits_only(value)
+    if len(digits) != 14:
+        return (value or "").strip()
+    return f"{digits[:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:]}"
+
+
+def validate_required_text(value: str | None, field_label: str, min_length: int = 1) -> tuple[str, str | None]:
+    normalized = normalize_whitespace(value)
+    if not normalized:
+        return "", f"Informe {field_label.lower()}."
+    if len(normalized) < min_length:
+        return normalized, f"{field_label} deve ter pelo menos {min_length} caracteres."
+    return normalized, None
+
+
+def validate_optional_phone(value: str | None, field_label: str = "Telefone") -> tuple[str, str | None]:
+    raw = (value or "").strip()
+    if not raw:
+        return "", None
+
+    digits = digits_only(raw)
+    if len(digits) not in {10, 11}:
+        return raw, f"{field_label} deve ter DDD e 8 ou 9 digitos."
+
+    return format_phone(digits), None
+
+
+def validate_optional_email(value: str | None, field_label: str = "Email") -> tuple[str, str | None]:
+    normalized = normalize_whitespace(value).lower()
+    if not normalized:
+        return "", None
+    if not EMAIL_RE.fullmatch(normalized):
+        return normalized, f"{field_label} esta em um formato invalido."
+    return normalized, None
+
+
+def _calcular_digito_cnpj(base_digits: str) -> str:
+    if len(base_digits) == 12:
+        pesos = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    else:
+        pesos = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+
+    total = sum(int(digito) * peso for digito, peso in zip(base_digits, pesos))
+    resto = total % 11
+    return "0" if resto < 2 else str(11 - resto)
+
+
+def validate_optional_cnpj(value: str | None) -> tuple[str, str | None]:
+    raw = (value or "").strip()
+    if not raw:
+        return "", None
+
+    digits = digits_only(raw)
+    if len(digits) != 14:
+        return raw, "CNPJ deve conter 14 digitos."
+    if len(set(digits)) == 1:
+        return raw, "CNPJ esta em um formato invalido."
+
+    primeiro = _calcular_digito_cnpj(digits[:12])
+    segundo = _calcular_digito_cnpj(digits[:12] + primeiro)
+    if digits[-2:] != primeiro + segundo:
+        return raw, "CNPJ invalido. Confira os digitos informados."
+
+    return format_cnpj(digits), None
+
+
+def validate_optional_url(value: str | None, field_label: str = "Site") -> tuple[str, str | None]:
+    raw = normalize_whitespace(value)
+    if not raw:
+        return "", None
+
+    candidate = raw if "://" in raw else f"https://{raw}"
+    parsed = urlparse(candidate)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc or "." not in parsed.netloc:
+        return raw, f"{field_label} esta em um formato invalido."
+
+    return parsed.geturl().rstrip("/"), None
+
+
+def validate_optional_instagram(value: str | None) -> tuple[str, str | None]:
+    raw = normalize_whitespace(value)
+    if not raw:
+        return "", None
+
+    handle = raw
+    if "instagram.com" in raw.lower() or raw.lower().startswith("http"):
+        candidate = raw if "://" in raw else f"https://{raw}"
+        parsed = urlparse(candidate)
+        partes = [parte for parte in parsed.path.split("/") if parte]
+        handle = partes[0] if partes else ""
+
+    handle = handle.lstrip("@").strip().strip("/")
+    if not INSTAGRAM_HANDLE_RE.fullmatch(handle):
+        return raw, "Instagram deve ser um @usuario valido ou um link do Instagram."
+
+    return f"@{handle}", None
+
+
+def validate_client_payload(data: dict) -> tuple[dict, list[str]]:
+    cleaned = {
+        "nome": normalize_whitespace(data.get("nome")),
+        "telefone": "",
+        "email": "",
+        "endereco": normalize_whitespace(data.get("endereco")),
+        "observacoes": (data.get("observacoes") or "").strip(),
+    }
+    errors: list[str] = []
+
+    cleaned["nome"], error = validate_required_text(cleaned["nome"], "o nome do cliente", min_length=2)
+    if error:
+        errors.append(error)
+
+    cleaned["telefone"], error = validate_optional_phone(data.get("telefone"))
+    if error:
+        errors.append(error)
+
+    cleaned["email"], error = validate_optional_email(data.get("email"))
+    if error:
+        errors.append(error)
+
+    return cleaned, errors
+
+
+def validate_product_payload(data: dict) -> tuple[dict, list[str]]:
+    cleaned = {
+        "nome": normalize_whitespace(data.get("nome")),
+        "categoria": normalize_whitespace(data.get("categoria")),
+        "unidade": normalize_whitespace(data.get("unidade")),
+        "preco_unitario": float(data.get("preco_unitario") or 0.0),
+        "descricao": normalize_whitespace(data.get("descricao")),
+        "ativo": 1 if data.get("ativo") else 0,
+    }
+    errors: list[str] = []
+
+    cleaned["nome"], error = validate_required_text(cleaned["nome"], "o nome do item", min_length=2)
+    if error:
+        errors.append(error)
+
+    cleaned["categoria"], error = validate_required_text(cleaned["categoria"], "a categoria", min_length=2)
+    if error:
+        errors.append(error)
+
+    cleaned["unidade"], error = validate_required_text(cleaned["unidade"], "a unidade", min_length=1)
+    if error:
+        errors.append(error)
+
+    if cleaned["preco_unitario"] < 0:
+        errors.append("Preco unitario nao pode ser negativo.")
+
+    return cleaned, errors
+
+
+def validate_company_payload(data: dict) -> tuple[dict, list[str]]:
+    cleaned = {
+        "nome_fantasia": normalize_whitespace(data.get("nome_fantasia")),
+        "app_title": normalize_whitespace(data.get("app_title")),
+        "app_short_name": normalize_whitespace(data.get("app_short_name")),
+        "razao_social": normalize_whitespace(data.get("razao_social")),
+        "cnpj": "",
+        "telefone": "",
+        "email": "",
+        "endereco": normalize_whitespace(data.get("endereco")),
+        "cidade_estado": normalize_whitespace(data.get("cidade_estado")),
+        "website": "",
+        "instagram": "",
+        "logo_base64": data.get("logo_base64") or "",
+        "logo_mime": data.get("logo_mime") or "",
+        "logo_filename": data.get("logo_filename") or "",
+        "observacoes": (data.get("observacoes") or "").strip(),
+    }
+    errors: list[str] = []
+
+    cleaned["nome_fantasia"], error = validate_required_text(cleaned["nome_fantasia"], "o nome fantasia", min_length=2)
+    if error:
+        errors.append(error)
+
+    cleaned["app_title"], error = validate_required_text(cleaned["app_title"], "o titulo do app", min_length=2)
+    if error:
+        errors.append(error)
+
+    cleaned["app_short_name"], error = validate_required_text(
+        cleaned["app_short_name"], "o nome curto do app", min_length=2
+    )
+    if error:
+        errors.append(error)
+    elif len(cleaned["app_short_name"]) > 18:
+        errors.append("Nome curto do app deve ter no maximo 18 caracteres para caber melhor no celular.")
+
+    cleaned["cnpj"], error = validate_optional_cnpj(data.get("cnpj"))
+    if error:
+        errors.append(error)
+
+    cleaned["telefone"], error = validate_optional_phone(data.get("telefone"))
+    if error:
+        errors.append(error)
+
+    cleaned["email"], error = validate_optional_email(data.get("email"))
+    if error:
+        errors.append(error)
+
+    cleaned["website"], error = validate_optional_url(data.get("website"), field_label="Site")
+    if error:
+        errors.append(error)
+
+    cleaned["instagram"], error = validate_optional_instagram(data.get("instagram"))
+    if error:
+        errors.append(error)
+
+    return cleaned, errors
+
+
+def validate_quote_payload(data: dict, itens: list[dict]) -> tuple[dict, list[dict], list[str]]:
+    cleaned = {
+        "numero": normalize_whitespace(data.get("numero")),
+        "cliente_id": data.get("cliente_id"),
+        "data_orcamento": data.get("data_orcamento"),
+        "responsavel": normalize_whitespace(data.get("responsavel")),
+        "status": normalize_whitespace(data.get("status")),
+        "subtotal": float(data.get("subtotal") or 0.0),
+        "desconto_tipo": normalize_whitespace(data.get("desconto_tipo")),
+        "desconto_percentual": float(data.get("desconto_percentual") or 0.0),
+        "desconto_valor": float(data.get("desconto_valor") or 0.0),
+        "taxa_adicional": float(data.get("taxa_adicional") or 0.0),
+        "total_final": float(data.get("total_final") or 0.0),
+        "observacoes": (data.get("observacoes") or "").strip(),
+        "validade": data.get("validade"),
+        "metragem_total": float(data.get("metragem_total") or 0.0),
+        "prazo_execucao": normalize_whitespace(data.get("prazo_execucao")),
+        "forma_pagamento": normalize_whitespace(data.get("forma_pagamento")),
+    }
+    normalized_items: list[dict] = []
+    errors: list[str] = []
+
+    cleaned["responsavel"], error = validate_required_text(
+        cleaned["responsavel"], "o nome do responsavel pelo orcamento", min_length=3
+    )
+    if error:
+        errors.append(error)
+
+    if not cleaned["cliente_id"]:
+        errors.append("Selecione um cliente para o orcamento.")
+
+    data_orcamento = cleaned["data_orcamento"]
+    validade = cleaned["validade"]
+    if isinstance(data_orcamento, str):
+        data_orcamento = date.fromisoformat(data_orcamento)
+    if isinstance(validade, str):
+        validade = date.fromisoformat(validade)
+    if isinstance(data_orcamento, date) and isinstance(validade, date) and validade < data_orcamento:
+        errors.append("Validade do orcamento nao pode ser anterior a data do orcamento.")
+
+    if cleaned["metragem_total"] < 0:
+        errors.append("Metragem total nao pode ser negativa.")
+
+    if not itens:
+        errors.append("Adicione pelo menos um item antes de salvar.")
+
+    for index, item in enumerate(itens, start=1):
+        quantidade = float(item.get("quantidade") or 0.0)
+        valor_unitario = float(item.get("valor_unitario") or 0.0)
+        item_nome = normalize_whitespace(item.get("item_nome"))
+
+        if not item_nome:
+            errors.append(f"O item {index} esta sem nome.")
+        if quantidade <= 0:
+            errors.append(f"O item {index} deve ter quantidade maior que zero.")
+        if valor_unitario < 0:
+            errors.append(f"O item {index} nao pode ter valor unitario negativo.")
+
+        normalized_items.append(
+            {
+                "produto_id": item.get("produto_id"),
+                "item_nome": item_nome,
+                "categoria": normalize_whitespace(item.get("categoria")),
+                "unidade": normalize_whitespace(item.get("unidade")),
+                "quantidade": quantidade,
+                "valor_unitario": valor_unitario,
+                "subtotal": round(quantidade * valor_unitario, 2),
+                "observacoes": (item.get("observacoes") or "").strip(),
+            }
+        )
+
+    return cleaned, normalized_items, errors
 
 
 def get_logo_bytes(company_info: dict | None = None) -> bytes | None:
@@ -1122,9 +1429,9 @@ def build_quote_html(orcamento: dict) -> str:
             </style>
         </head>
         <body>
-            <button class="print-btn" onclick="window.print()">Imprimir</button>
-            <div class="header">
-                <div class="brand">
+            <button class="print-btn" onclick="window.print()" aria-label="Imprimir orcamento">Imprimir</button>
+            <div class="header" role="banner" aria-label="Cabecalho do orcamento">
+                <div class="brand" aria-label="Identidade da empresa">
                     {logo_html}
                     <div>
                         <p class="company-name">{html.escape(safe_text(company.get("nome_fantasia"), "Empresa"))}</p>
@@ -1140,15 +1447,15 @@ def build_quote_html(orcamento: dict) -> str:
                 </div>
             </div>
 
-            <div class="grid">
-                <div class="box">
+            <div class="grid" role="region" aria-label="Dados principais do orcamento">
+                <div class="box" aria-label="Dados do cliente">
                     <h3>Cliente</h3>
                     <div><strong>Nome:</strong> {html.escape(orcamento.get("cliente_nome", ""))}</div>
                     <div><strong>Telefone:</strong> {html.escape(orcamento.get("cliente_telefone", "") or "-")}</div>
                     <div><strong>Email:</strong> {html.escape(orcamento.get("cliente_email", "") or "-")}</div>
                     <div><strong>Endereço:</strong> {html.escape(orcamento.get("cliente_endereco", "") or "-")}</div>
                 </div>
-                <div class="box">
+                <div class="box" aria-label="Detalhes da proposta">
                     <h3>Detalhes</h3>
                     <div><strong>Responsável:</strong> {html.escape(orcamento.get("responsavel", ""))}</div>
                     <div><strong>Metragem:</strong> {float(orcamento.get("metragem_total") or 0):,.2f} m2</div>
@@ -1157,9 +1464,9 @@ def build_quote_html(orcamento: dict) -> str:
                 </div>
             </div>
 
-            <div class="box">
+            <div class="box" aria-label="Tabela de itens do orcamento">
                 <h3>Itens do orçamento</h3>
-                <table>
+                <table aria-label="Itens do orcamento">
                     <thead>
                         <tr>
                             <th>Item</th>
@@ -1176,7 +1483,7 @@ def build_quote_html(orcamento: dict) -> str:
                 </table>
             </div>
 
-            <table class="totals">
+            <table class="totals" aria-label="Resumo financeiro">
                 <tr>
                     <td>Subtotal</td>
                     <td style="text-align:right;">{currency(orcamento.get("subtotal", 0))}</td>
@@ -1195,7 +1502,7 @@ def build_quote_html(orcamento: dict) -> str:
                 </tr>
             </table>
 
-            <div class="box">
+            <div class="box" aria-label="Observacoes do orcamento">
                 <h3>Observações</h3>
                 <div>{html.escape(orcamento.get("observacoes", "") or "Sem observações adicionais.")}</div>
             </div>

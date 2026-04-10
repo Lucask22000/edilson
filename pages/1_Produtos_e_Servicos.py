@@ -5,7 +5,7 @@ import streamlit as st
 from components import render_data_hint, render_empty_state, render_page_header, render_section_header, setup_page
 from database import create_product, delete_product, get_product, get_product_categories, list_products, update_product
 from models import CATEGORIAS_PADRAO, UNIDADES_PADRAO
-from utils import currency
+from utils import currency, validate_product_payload
 
 
 PAGE_TITLE = "Produtos e Servicos"
@@ -53,19 +53,21 @@ with st.container(border=True):
         if submitted:
             categoria = resolve_category(categoria_opcao, categoria_custom)
             unidade = resolve_unit(unidade_opcao, unidade_custom)
-            if not nome.strip() or not categoria or not unidade:
-                st.error("Preencha nome, categoria e unidade para cadastrar o item.")
+            payload, errors = validate_product_payload(
+                {
+                    "nome": nome,
+                    "categoria": categoria,
+                    "unidade": unidade,
+                    "preco_unitario": preco_unitario,
+                    "descricao": descricao,
+                    "ativo": ativo,
+                }
+            )
+            if errors:
+                for error in errors:
+                    st.error(error)
             else:
-                create_product(
-                    {
-                        "nome": nome.strip(),
-                        "categoria": categoria,
-                        "unidade": unidade,
-                        "preco_unitario": float(preco_unitario),
-                        "descricao": descricao.strip(),
-                        "ativo": 1 if ativo else 0,
-                    }
-                )
+                create_product(payload)
                 st.success("Item cadastrado com sucesso.")
                 st.rerun()
 
@@ -177,20 +179,21 @@ if produto_edicao_id:
             if salvar:
                 categoria = resolve_category(categoria_opcao, categoria_custom)
                 unidade = resolve_unit(unidade_opcao, unidade_custom)
-                if not nome.strip() or not categoria or not unidade:
-                    st.error("Preencha nome, categoria e unidade para salvar o item.")
+                payload, errors = validate_product_payload(
+                    {
+                        "nome": nome,
+                        "categoria": categoria,
+                        "unidade": unidade,
+                        "preco_unitario": preco_unitario,
+                        "descricao": descricao,
+                        "ativo": ativo,
+                    }
+                )
+                if errors:
+                    for error in errors:
+                        st.error(error)
                 else:
-                    update_product(
-                        produto_edicao_id,
-                        {
-                            "nome": nome.strip(),
-                            "categoria": categoria,
-                            "unidade": unidade,
-                            "preco_unitario": float(preco_unitario),
-                            "descricao": descricao.strip(),
-                            "ativo": 1 if ativo else 0,
-                        },
-                    )
+                    update_product(produto_edicao_id, payload)
                     st.success("Item atualizado com sucesso.")
                     del st.session_state["produto_edicao_id"]
                     st.rerun()

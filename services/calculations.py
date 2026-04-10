@@ -26,13 +26,13 @@ def calcular_totais(
     taxa_adicional = max(0.0, sanitize_money(taxa_adicional))
 
     desconto_aplicado = 0.0
-    desconto_percentual = max(0.0, sanitize_money(desconto_percentual))
+    desconto_percentual = min(100.0, max(0.0, sanitize_money(desconto_percentual)))
     desconto_valor = max(0.0, sanitize_money(desconto_valor))
 
     if desconto_tipo == "Percentual" and subtotal > 0:
-        desconto_aplicado = round(subtotal * (desconto_percentual / 100), 2)
+        desconto_aplicado = min(subtotal, round(subtotal * (desconto_percentual / 100), 2))
     elif desconto_tipo == "Valor fixo":
-        desconto_aplicado = min(subtotal, desconto_valor)
+        desconto_aplicado = round(min(subtotal, desconto_valor), 2)
 
     total_final = max(0.0, round(subtotal - desconto_aplicado + taxa_adicional, 2))
 

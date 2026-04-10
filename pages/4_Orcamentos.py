@@ -69,7 +69,6 @@ if orcamentos:
     with a1:
         if st.button("Abrir detalhes", use_container_width=True):
             st.session_state["orcamento_detalhe_id"] = selecionado_id
-            st.rerun()
     with a2:
         if st.button("Duplicar orcamento", use_container_width=True):
             st.session_state["orcamento_duplicar_id"] = selecionado_id
