@@ -5,37 +5,28 @@ from datetime import date, timedelta
 import streamlit as st
 import streamlit.components.v1 as components
 
-from database import delete_orcamento, get_orcamento, init_db, list_orcamentos, update_orcamento_status
+from components import render_data_hint, render_empty_state, render_info_card, render_page_header, render_section_header, setup_page
+from database import delete_orcamento, get_orcamento, list_orcamentos, update_orcamento_status
 from models import STATUS_ORCAMENTO
-from utils import (
-    build_quote_html,
-    build_quote_pdf,
-    build_share_links,
-    configure_page,
-    currency,
-    ensure_authenticated,
-    inject_custom_css,
-    render_sidebar_branding,
-    render_status_badge,
-    safe_text,
+from utils import build_quote_html, build_quote_pdf, build_share_links, currency, render_status_badge, safe_text
+
+
+PAGE_TITLE = "Orcamentos"
+
+setup_page(PAGE_TITLE)
+
+render_page_header(
+    "Orcamentos salvos",
+    "Consulte, filtre, visualize detalhes e acompanhe o status de cada proposta emitida pela empresa.",
+    eyebrow="Acompanhamento comercial",
+    badge="Historico completo",
 )
 
-
-PAGE_TITLE = "Orçamentos"
-
-configure_page(PAGE_TITLE)
-init_db()
-inject_custom_css(PAGE_TITLE)
-ensure_authenticated(PAGE_TITLE)
-render_sidebar_branding(PAGE_TITLE)
-
-st.title("Orçamentos salvos")
-st.caption("Consulte, filtre, visualize detalhes e acompanhe o status de cada orçamento.")
-
+render_section_header("Filtros e consulta", "Refine a listagem por cliente, status e periodo para localizar um documento.")
 f1, f2, f3, f4 = st.columns([2, 1, 1, 1])
 search = f1.text_input("Pesquisar por cliente")
 status = f2.selectbox("Filtrar por status", ["Todos"] + STATUS_ORCAMENTO)
-filtrar_periodo = f3.checkbox("Filtrar período", value=False)
+filtrar_periodo = f3.checkbox("Filtrar periodo", value=False)
 data_inicio = ""
 data_fim = ""
 if filtrar_periodo:
@@ -49,11 +40,16 @@ orcamentos = list_orcamentos(
     data_fim=data_fim,
 )
 
+render_data_hint(
+    "Leitura rapida",
+    "Abra um registro para revisar itens, exportar documentos, compartilhar links e atualizar o status do orcamento.",
+)
+
 if orcamentos:
     st.dataframe(
         [
             {
-                "Número": orcamento["numero"],
+                "Numero": orcamento["numero"],
                 "Cliente": orcamento["cliente_nome"],
                 "Data": orcamento["data_orcamento"],
                 "Status": orcamento["status"],
@@ -66,7 +62,7 @@ if orcamentos:
     )
 
     options = {f"{orcamento['numero']} - {orcamento['cliente_nome']}": orcamento["id"] for orcamento in orcamentos}
-    selecionado_label = st.selectbox("Selecione um orçamento", list(options.keys()))
+    selecionado_label = st.selectbox("Selecione um orcamento", list(options.keys()))
     selecionado_id = options[selecionado_label]
 
     a1, a2, a3 = st.columns([1, 1, 1])
@@ -75,79 +71,57 @@ if orcamentos:
             st.session_state["orcamento_detalhe_id"] = selecionado_id
             st.rerun()
     with a2:
-        if st.button("Duplicar orçamento", use_container_width=True):
+        if st.button("Duplicar orcamento", use_container_width=True):
             st.session_state["orcamento_duplicar_id"] = selecionado_id
             st.switch_page("pages/3_Novo_Orcamento.py")
     with a3:
-        confirmar_exclusao = st.checkbox("Confirmar exclusão", key="confirmar_exclusao_orcamento")
-        if st.button("Excluir orçamento", use_container_width=True) and confirmar_exclusao:
+        confirmar_exclusao = st.checkbox("Confirmar exclusao", key="confirmar_exclusao_orcamento")
+        if st.button("Excluir orcamento", use_container_width=True) and confirmar_exclusao:
             delete_orcamento(selecionado_id)
             if st.session_state.get("orcamento_detalhe_id") == selecionado_id:
                 del st.session_state["orcamento_detalhe_id"]
-            st.success("Orçamento excluído com sucesso.")
+            st.success("Orcamento excluido com sucesso.")
             st.rerun()
 else:
-    st.info("Nenhum orçamento encontrado com os filtros atuais.")
+    render_empty_state("Nenhum orcamento encontrado", "Ajuste os filtros ou crie um novo documento para iniciar o historico.")
 
 orcamento_detalhe_id = st.session_state.get("orcamento_detalhe_id")
 if orcamento_detalhe_id:
     detalhe = get_orcamento(orcamento_detalhe_id)
     if detalhe:
-        st.markdown("### Detalhes do orçamento")
-        info1, info2, info3 = st.columns([1.5, 1, 1])
-        info1.markdown(
-            f"""
-            <div class="section-card">
-                <h4 style="margin-top:0;">{detalhe['numero']}</h4>
-                <p style="margin:0.2rem 0;"><strong>Cliente:</strong> {detalhe['cliente_nome']}</p>
-                <p style="margin:0.2rem 0;"><strong>Responsável:</strong> {detalhe['responsavel']}</p>
-                <p style="margin:0.2rem 0;"><strong>Data:</strong> {detalhe['data_orcamento']}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        info2.markdown(
-            f"""
-            <div class="section-card">
-                <h4 style="margin-top:0;">Status</h4>
-                {render_status_badge(detalhe['status'])}
-                <p style="margin:0.8rem 0 0 0;"><strong>Validade:</strong> {safe_text(detalhe['validade'])}</p>
-                <p style="margin:0.2rem 0 0 0;"><strong>Pagamento:</strong> {safe_text(detalhe['forma_pagamento'])}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        info3.markdown(
-            f"""
-            <div class="section-card">
-                <h4 style="margin-top:0;">Total final</h4>
-                <div style="font-size:1.8rem; font-weight:700; color:#1877f2;">{currency(detalhe['total_final'])}</div>
-                <p style="margin:0.8rem 0 0 0;"><strong>Metragem:</strong> {float(detalhe['metragem_total'] or 0):,.2f} m2</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        render_section_header("Detalhes do orcamento", "Visualizacao completa do documento com resumo, itens e acoes.")
+        info1, info2, info3 = st.columns(3)
+        with info1:
+            render_info_card(detalhe["numero"], safe_text(detalhe["cliente_nome"]), safe_text(detalhe["data_orcamento"]))
+        with info2:
+            render_info_card("Status", safe_text(detalhe["status"]), safe_text(detalhe["validade"]))
+            st.markdown(render_status_badge(detalhe["status"]), unsafe_allow_html=True)
+        with info3:
+            render_info_card("Total final", currency(detalhe["total_final"]), f"{float(detalhe['metragem_total'] or 0):,.2f} m2")
 
         cliente_col, resumo_col = st.columns(2, gap="large")
         with cliente_col:
-            st.markdown("#### Dados do cliente")
-            st.write(f"**Nome:** {detalhe['cliente_nome']}")
-            st.write(f"**Telefone:** {safe_text(detalhe['cliente_telefone'])}")
-            st.write(f"**Email:** {safe_text(detalhe['cliente_email'])}")
-            st.write(f"**Endereço:** {safe_text(detalhe['cliente_endereco'])}")
-            st.write(f"**Observações:** {safe_text(detalhe['cliente_observacoes'])}")
+            with st.container(border=True):
+                render_section_header("Dados do cliente")
+                st.write(f"**Nome:** {detalhe['cliente_nome']}")
+                st.write(f"**Telefone:** {safe_text(detalhe['cliente_telefone'])}")
+                st.write(f"**Email:** {safe_text(detalhe['cliente_email'])}")
+                st.write(f"**Endereco:** {safe_text(detalhe['cliente_endereco'])}")
+                st.write(f"**Observacoes:** {safe_text(detalhe['cliente_observacoes'])}")
         with resumo_col:
-            st.markdown("#### Resumo financeiro")
-            st.write(f"**Subtotal:** {currency(detalhe['subtotal'])}")
-            if detalhe["desconto_tipo"] == "Percentual":
-                desconto_aplicado = float(detalhe["subtotal"]) * (float(detalhe["desconto_percentual"]) / 100)
-                st.write(f"**Desconto:** {detalhe['desconto_percentual']:.2f}% ({currency(desconto_aplicado)})")
-            else:
-                st.write(f"**Desconto:** {currency(detalhe['desconto_valor'])}")
-            st.write(f"**Taxa adicional:** {currency(detalhe['taxa_adicional'])}")
-            st.write(f"**Prazo estimado:** {safe_text(detalhe['prazo_execucao'])}")
+            with st.container(border=True):
+                render_section_header("Resumo financeiro")
+                st.write(f"**Subtotal:** {currency(detalhe['subtotal'])}")
+                if detalhe["desconto_tipo"] == "Percentual":
+                    desconto_aplicado = float(detalhe["subtotal"]) * (float(detalhe["desconto_percentual"]) / 100)
+                    st.write(f"**Desconto:** {detalhe['desconto_percentual']:.2f}% ({currency(desconto_aplicado)})")
+                else:
+                    st.write(f"**Desconto:** {currency(detalhe['desconto_valor'])}")
+                st.write(f"**Taxa adicional:** {currency(detalhe['taxa_adicional'])}")
+                st.write(f"**Prazo estimado:** {safe_text(detalhe['prazo_execucao'])}")
+                st.write(f"**Pagamento:** {safe_text(detalhe['forma_pagamento'])}")
 
-        st.markdown("#### Itens")
+        render_section_header("Itens", "Itens que compoem o documento selecionado.")
         st.dataframe(
             [
                 {
@@ -155,9 +129,9 @@ if orcamento_detalhe_id:
                     "Categoria": item["categoria"] or "-",
                     "Unidade": item["unidade"] or "-",
                     "Quantidade": item["quantidade"],
-                    "Valor unitário": currency(item["valor_unitario"]),
+                    "Valor unitario": currency(item["valor_unitario"]),
                     "Subtotal": currency(item["subtotal"]),
-                    "Observação": item["observacoes"] or "-",
+                    "Observacao": item["observacoes"] or "-",
                 }
                 for item in detalhe["itens"]
             ],
@@ -165,10 +139,11 @@ if orcamento_detalhe_id:
             hide_index=True,
         )
 
-        st.markdown("#### Observações gerais")
-        st.write(safe_text(detalhe["observacoes"]))
+        with st.container(border=True):
+            render_section_header("Observacoes gerais")
+            st.write(safe_text(detalhe["observacoes"]))
 
-        st.markdown("#### Ações")
+        render_section_header("Acoes", "Atualize o status, exporte arquivos ou compartilhe a proposta com o cliente.")
         u1, u2, u3 = st.columns([1, 1, 1])
         novo_status = u1.selectbox(
             "Atualizar status",
@@ -190,14 +165,14 @@ if orcamento_detalhe_id:
             use_container_width=True,
         )
         u3.download_button(
-            "Baixar HTML imprimível",
+            "Baixar HTML imprimivel",
             data=html_export,
             file_name=f"{detalhe['numero']}.html",
             mime="text/html",
             use_container_width=True,
         )
 
-        st.markdown("#### Compartilhar")
+        render_section_header("Compartilhar", "Use os links diretos ou a mensagem pronta para enviar a proposta ao cliente.")
         share_data = build_share_links(detalhe)
         share1, share2 = st.columns(2)
         with share1:
@@ -209,11 +184,11 @@ if orcamento_detalhe_id:
             if share_data["whatsapp"]:
                 st.link_button("Compartilhar no WhatsApp", share_data["whatsapp"], use_container_width=True)
             else:
-                st.caption("Cliente sem telefone válido para link direto no WhatsApp.")
+                st.caption("Cliente sem telefone valido para link direto no WhatsApp.")
 
         with st.expander("Mensagem pronta para compartilhar", expanded=False):
             st.code(share_data["message"], language="text")
-            st.caption("Dica: você pode enviar a mensagem pronta e anexar o PDF baixado.")
+            st.caption("Voce pode enviar a mensagem pronta e anexar o PDF baixado.")
 
-        with st.expander("Visualizar layout limpo para impressão", expanded=False):
+        with st.expander("Visualizar layout limpo para impressao", expanded=False):
             components.html(html_export, height=700, scrolling=True)

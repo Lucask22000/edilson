@@ -1,4 +1,4 @@
-Projeto: Sistema de Orçamentos - Snapshot completo gerado em 2026-04-09 16:38:31
+Projeto: Sistema de Orçamentos - Snapshot completo gerado em 2026-04-09 17:09:06
 
 Cada seção abaixo mostra o caminho do arquivo original seguido pelo conteúdo completo.
 
@@ -113,64 +113,50 @@ __pycache__/
 ----- app.py -----
 from __future__ import annotations
 
-import html
-
 import streamlit as st
 
-from database import get_company_info, get_dashboard_metrics, get_recent_orcamentos, init_db, seed_sample_data
-from utils import (
-    configure_page,
-    currency,
-    ensure_authenticated,
-    inject_custom_css,
-    render_metric_card,
-    render_sidebar_branding,
-    render_status_badge,
-)
+from components import render_data_hint, render_empty_state, render_page_header, render_section_header, setup_page
+from database import get_company_info, get_dashboard_metrics, get_recent_orcamentos, seed_sample_data
+from utils import currency, render_metric_card, render_status_badge
 
 
 PAGE_TITLE = "Painel"
 
-configure_page(PAGE_TITLE)
-init_db()
-inject_custom_css(PAGE_TITLE)
-ensure_authenticated(PAGE_TITLE)
-render_sidebar_branding(PAGE_TITLE)
+setup_page(PAGE_TITLE)
 
 company = get_company_info()
-company_name = html.escape(company.get("nome_fantasia") or "Empresa")
+company_name = company.get("nome_fantasia") or "Empresa"
 
-st.markdown(
-    f"""
-    <div class="hero-box">
-        <h1 style="margin:0 0 0.35rem 0;">Sistema de Orçamentos</h1>
-        <p style="margin:0; font-size:1.02rem;">
-            Gestão completa da empresa <strong>{company_name}</strong> com clientes, produtos, orçamentos e documentos personalizados.
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
+render_page_header(
+    "Painel administrativo",
+    f"Gestao completa da empresa {company_name} com clientes, produtos, orcamentos e documentos personalizados.",
+    eyebrow="Visao geral do negocio",
+    badge="Streamlit multipage",
 )
 
 metricas = get_dashboard_metrics()
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    render_metric_card("Produtos cadastrados", metricas["total_produtos"], "Catálogo de materiais e serviços")
+    render_metric_card("Produtos cadastrados", metricas["total_produtos"], "Catalogo de materiais e servicos")
 with col2:
     render_metric_card("Clientes", metricas["total_clientes"], "Base de clientes ativos no sistema")
 with col3:
-    render_metric_card("Orçamentos", metricas["total_orcamentos"], "Documentos registrados")
+    render_metric_card("Orcamentos", metricas["total_orcamentos"], "Documentos registrados")
 
 col4, col5, col6 = st.columns(3)
 with col4:
-    render_metric_card("Valor total orçado", currency(metricas["valor_total_orcado"]), "Soma dos orçamentos salvos")
+    render_metric_card("Valor total orcado", currency(metricas["valor_total_orcado"]), "Soma dos orcamentos salvos")
 with col5:
-    render_metric_card("Aprovados", metricas["orcamentos_aprovados"], "Orçamentos convertidos")
+    render_metric_card("Aprovados", metricas["orcamentos_aprovados"], "Orcamentos convertidos")
 with col6:
-    render_metric_card("Recusados", metricas["orcamentos_recusados"], "Orçamentos não fechados")
+    render_metric_card("Recusados", metricas["orcamentos_recusados"], "Orcamentos nao fechados")
 
-st.markdown("### Atalhos úteis")
+render_section_header("Atalhos uteis", "Acoes rapidas para preparar o ambiente e atualizar os dados do painel.")
+render_data_hint(
+    "Rotina recomendada",
+    "Revise indicadores, mantenha os cadastros em dia e acompanhe os ultimos orcamentos antes de abrir novas propostas.",
+)
 cta1, cta2, cta3 = st.columns([1, 1, 2])
 with cta1:
     if st.button("Popular dados de exemplo", use_container_width=True):
@@ -178,15 +164,15 @@ with cta1:
         if inserted:
             st.success("Dados de exemplo adicionados com sucesso.")
         else:
-            st.info("Os dados de exemplo já estavam disponíveis.")
+            st.info("Os dados de exemplo ja estavam disponiveis.")
         st.rerun()
 with cta2:
     if st.button("Atualizar painel", use_container_width=True):
         st.rerun()
 with cta3:
-    st.info("Use o menu lateral para cadastrar produtos, clientes, gerar orçamentos e atualizar as configurações da empresa.")
+    st.info("Use o menu lateral para cadastrar produtos, clientes, gerar orcamentos e atualizar as configuracoes.")
 
-st.markdown("### Últimos orçamentos")
+render_section_header("Ultimos orcamentos", "Historico recente para acompanhamento rapido do time comercial.")
 recentes = get_recent_orcamentos()
 if recentes:
     for orcamento in recentes:
@@ -197,7 +183,7 @@ if recentes:
             col_c.markdown(render_status_badge(orcamento["status"]), unsafe_allow_html=True)
             col_d.write(currency(orcamento["total_final"]))
 else:
-    st.info("Nenhum orçamento cadastrado ainda.")
+    render_empty_state("Nenhum orcamento cadastrado", "Cadastre clientes e itens para comecar a emitir propostas.")
 
 ----- database.py -----
 from __future__ import annotations
@@ -1075,29 +1061,31 @@ def inject_custom_css(page_title: str) -> None:
         """
         <style>
             :root {
-                --bg-top: #fff7ed;
-                --bg-bottom: #fff1de;
+                --bg-top: #ffffff;
+                --bg-bottom: #f7f9fc;
                 --surface: #ffffff;
-                --surface-muted: #fff3e6;
-                --surface-strong: #ffe3c4;
-                --border: #eadfd4;
-                --border-strong: #dbcab7;
-                --text-main: #1f2937;
-                --text-soft: #374151;
-                --text-muted: #6b7280;
-                --brand: #f97316;
-                --brand-strong: #ea580c;
-                --brand-deep: #c2410c;
-                --sidebar-top: #fff5e9;
-                --sidebar-bottom: #ffe9d1;
-                --sidebar-text: #1f2937;
-                --sidebar-muted: #6b7280;
+                --surface-muted: #f0f2f6;
+                --surface-strong: #fff1f1;
+                --border: #e3e7ef;
+                --border-strong: #d4dae5;
+                --text-main: #262730;
+                --text-soft: #31333f;
+                --text-muted: #6c7383;
+                --brand: #ff4b4b;
+                --brand-strong: #e03e3e;
+                --brand-deep: #bf2f2f;
+                --sidebar-top: #f7f9fc;
+                --sidebar-bottom: #eef2f7;
+                --sidebar-text: #262730;
+                --sidebar-muted: #6c7383;
+                --shadow-soft: 0 14px 30px rgba(31, 41, 55, 0.08);
             }
             .stApp {
                 background:
-                    radial-gradient(circle at top right, rgba(249, 115, 22, 0.12), transparent 28%),
-                    linear-gradient(180deg, var(--bg-top) 0%, #fffaf5 20%, var(--bg-bottom) 100%);
+                    radial-gradient(circle at top right, rgba(255, 75, 75, 0.10), transparent 28%),
+                    linear-gradient(180deg, var(--bg-top) 0%, #fbfcfe 20%, var(--bg-bottom) 100%);
                 color: var(--text-main);
+                font-family: "Trebuchet MS", "Segoe UI", sans-serif;
             }
             [data-testid="stSidebar"] {
                 background: linear-gradient(180deg, var(--sidebar-top) 0%, var(--sidebar-bottom) 100%);
@@ -1122,11 +1110,21 @@ def inject_custom_css(page_title: str) -> None:
                 -webkit-text-fill-color: var(--sidebar-text) !important;
             }
             [data-testid="stSidebar"] [data-testid="stButton"] > button:hover {
-                background: rgba(249, 115, 22, 0.08);
-                border-color: rgba(249, 115, 22, 0.15);
+                background: rgba(255, 75, 75, 0.08);
+                border-color: rgba(255, 75, 75, 0.15);
+            }
+            [data-testid="stSidebarNav"] {
+                background: transparent;
+                padding-top: 0.25rem;
+            }
+            [data-testid="stSidebarNav"] a {
+                border-radius: 14px;
+                margin-bottom: 0.25rem;
             }
             .block-container {
                 padding-top: 2rem;
+                padding-bottom: 2rem;
+                max-width: 1400px;
             }
             h1, h2, h3, h4, h5, h6 {
                 color: var(--text-main);
@@ -1148,6 +1146,7 @@ def inject_custom_css(page_title: str) -> None:
                 background: rgba(255, 255, 255, 0.96);
                 border: 1px solid rgba(216, 219, 225, 0.95);
                 padding: 1rem;
+                box-shadow: var(--shadow-soft);
             }
             div[data-baseweb="input"] > div,
             div[data-baseweb="select"] > div,
@@ -1171,7 +1170,7 @@ def inject_custom_css(page_title: str) -> None:
             div[data-baseweb="textarea"] > div:focus-within,
             [data-testid="stDateInputField"]:focus-within {
                 border-color: var(--brand);
-                box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.18);
+                box-shadow: 0 0 0 2px rgba(255, 75, 75, 0.18);
             }
             .stButton > button,
             .stDownloadButton > button,
@@ -1181,7 +1180,7 @@ def inject_custom_css(page_title: str) -> None:
                 border: 1px solid var(--brand-strong);
                 border-radius: 12px;
                 font-weight: 600;
-                box-shadow: 0 6px 14px rgba(249, 115, 22, 0.18);
+                box-shadow: 0 6px 14px rgba(255, 75, 75, 0.18);
             }
             .stButton > button *,
             .stButton > button p,
@@ -1203,8 +1202,8 @@ def inject_custom_css(page_title: str) -> None:
             .stButton > button:hover,
             .stDownloadButton > button:hover,
             [data-testid="stLinkButton"] a:hover {
-                background: linear-gradient(180deg, #fb8a2f 0%, #d75a07 100%);
-                border-color: #c24e05;
+                background: linear-gradient(180deg, #ff6b6b 0%, #e03e3e 100%);
+                border-color: #d13737;
                 color: #ffffff;
             }
             .stButton > button[kind="secondary"],
@@ -1228,7 +1227,7 @@ def inject_custom_css(page_title: str) -> None:
             [data-testid="stDataFrame"] {
                 background: var(--surface);
                 border: 1px solid var(--border);
-                box-shadow: 0 8px 24px rgba(28, 30, 33, 0.06);
+                box-shadow: var(--shadow-soft);
             }
             [data-testid="stTable"] {
                 color: var(--text-main);
@@ -1236,11 +1235,87 @@ def inject_custom_css(page_title: str) -> None:
             [data-testid="stExpander"] {
                 background: rgba(255, 255, 255, 0.96);
                 border: 1px solid rgba(216, 219, 225, 0.9);
+                box-shadow: var(--shadow-soft);
             }
             [data-testid="stMetric"] {
                 background: rgba(255, 255, 255, 0.98);
                 border: 1px solid rgba(216, 219, 225, 0.95);
                 padding: 0.25rem 0.35rem;
+            }
+            .page-header {
+                position: relative;
+                overflow: hidden;
+                background:
+                    radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 24%),
+                    linear-gradient(135deg, #992d2d 0%, var(--brand-deep) 28%, var(--brand) 100%);
+                color: #ffffff;
+                border-radius: 24px;
+                padding: 1.6rem 1.8rem;
+                margin-bottom: 1.2rem;
+                box-shadow: 0 18px 44px rgba(255, 75, 75, 0.22);
+            }
+            .page-header::after {
+                content: "";
+                position: absolute;
+                inset: auto -60px -70px auto;
+                width: 200px;
+                height: 200px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.12);
+            }
+            .page-header__content {
+                position: relative;
+                z-index: 1;
+            }
+            .page-header__eyebrow {
+                margin: 0 0 0.35rem 0;
+                font-size: 0.82rem;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: rgba(255, 255, 255, 0.78);
+            }
+            .page-header__title-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 1rem;
+                flex-wrap: wrap;
+            }
+            .page-header__title-row h1 {
+                margin: 0;
+                color: #ffffff;
+                font-size: 2rem;
+                line-height: 1.1;
+            }
+            .page-header__description {
+                margin: 0.55rem 0 0 0;
+                max-width: 760px;
+                color: rgba(255, 255, 255, 0.88);
+                font-size: 1rem;
+            }
+            .page-header__badge {
+                display: inline-flex;
+                align-items: center;
+                border-radius: 999px;
+                padding: 0.45rem 0.85rem;
+                background: rgba(255, 255, 255, 0.16);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                color: #ffffff;
+                font-size: 0.82rem;
+                font-weight: 700;
+                backdrop-filter: blur(6px);
+            }
+            .section-header {
+                margin: 0.2rem 0 0.75rem 0;
+            }
+            .section-header h3 {
+                margin: 0;
+                font-size: 1.1rem;
+            }
+            .section-header__description {
+                margin: 0.25rem 0 0 0;
+                color: var(--text-muted);
+                font-size: 0.93rem;
             }
             .hero-box {
                 background: linear-gradient(135deg, var(--brand-deep) 0%, var(--brand) 100%);
@@ -1248,14 +1323,14 @@ def inject_custom_css(page_title: str) -> None:
                 border-radius: 18px;
                 padding: 1.4rem 1.6rem;
                 margin-bottom: 1rem;
-                box-shadow: 0 16px 36px rgba(249, 115, 22, 0.22);
+                box-shadow: 0 16px 36px rgba(255, 75, 75, 0.22);
             }
             .metric-card {
                 background: var(--surface);
                 border: 1px solid rgba(216, 219, 225, 0.95);
                 border-radius: 16px;
                 padding: 1rem 1.1rem;
-                box-shadow: 0 12px 28px rgba(28, 30, 33, 0.08);
+                box-shadow: var(--shadow-soft);
                 min-height: 118px;
             }
             .metric-label {
@@ -1280,7 +1355,174 @@ def inject_custom_css(page_title: str) -> None:
                 border-radius: 16px;
                 padding: 1rem 1.1rem;
                 margin-bottom: 1rem;
-                box-shadow: 0 8px 22px rgba(28, 30, 33, 0.06);
+                box-shadow: var(--shadow-soft);
+            }
+            .info-card {
+                background: linear-gradient(180deg, #ffffff 0%, #fff7f7 100%);
+                border: 1px solid rgba(255, 75, 75, 0.12);
+                border-radius: 16px;
+                padding: 1rem 1.1rem;
+                box-shadow: var(--shadow-soft);
+                min-height: 118px;
+            }
+            .info-card__title {
+                color: var(--text-muted);
+                font-size: 0.86rem;
+                margin-bottom: 0.35rem;
+            }
+            .info-card__value {
+                color: var(--text-main);
+                font-size: 1.35rem;
+                font-weight: 700;
+                line-height: 1.2;
+            }
+            .info-card__helper {
+                margin: 0.4rem 0 0 0;
+                color: var(--text-muted);
+                font-size: 0.84rem;
+            }
+            .toolbar-card {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 1rem;
+                flex-wrap: wrap;
+                background: rgba(255, 255, 255, 0.78);
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                padding: 0.8rem 1rem;
+                margin-bottom: 0.8rem;
+                box-shadow: var(--shadow-soft);
+            }
+            .toolbar-card strong {
+                color: var(--text-main);
+            }
+            .toolbar-card span {
+                color: var(--text-muted);
+                font-size: 0.9rem;
+            }
+            .empty-state {
+                text-align: center;
+                padding: 1.4rem 1.2rem;
+                border-radius: 18px;
+                border: 1px dashed rgba(255, 75, 75, 0.25);
+                background: rgba(255, 255, 255, 0.75);
+                box-shadow: var(--shadow-soft);
+            }
+            .empty-state h4 {
+                margin: 0;
+            }
+            .empty-state p {
+                margin: 0.4rem 0 0 0;
+                color: var(--text-muted);
+            }
+            .login-shell {
+                max-width: 980px;
+                margin: 3.5rem auto 0 auto;
+            }
+            .login-panel {
+                background:
+                    radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 26%),
+                    linear-gradient(135deg, #992d2d 0%, var(--brand-deep) 28%, var(--brand) 100%);
+                border-radius: 28px;
+                padding: 2rem;
+                box-shadow: 0 24px 48px rgba(255, 75, 75, 0.20);
+                color: #ffffff;
+                min-height: 100%;
+            }
+            .login-panel h1 {
+                color: #ffffff;
+                margin: 0 0 0.5rem 0;
+                font-size: 2rem;
+                line-height: 1.05;
+            }
+            .login-panel p {
+                color: rgba(255, 255, 255, 0.86);
+                margin: 0;
+                line-height: 1.6;
+            }
+            .login-panel__eyebrow {
+                display: inline-block;
+                margin-bottom: 0.85rem;
+                font-size: 0.78rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: rgba(255, 255, 255, 0.76);
+            }
+            .login-meta {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.8rem;
+                margin-top: 1.35rem;
+            }
+            .login-meta__item {
+                background: rgba(255, 255, 255, 0.12);
+                border: 1px solid rgba(255, 255, 255, 0.16);
+                border-radius: 16px;
+                padding: 0.9rem 1rem;
+            }
+            .login-meta__label {
+                display: block;
+                font-size: 0.78rem;
+                font-weight: 700;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                color: rgba(255, 255, 255, 0.72);
+                margin-bottom: 0.3rem;
+            }
+            .login-meta__value {
+                color: #ffffff;
+                font-size: 0.96rem;
+                font-weight: 600;
+            }
+            .login-card {
+                background: rgba(255, 255, 255, 0.97);
+                border: 1px solid var(--border);
+                border-radius: 24px;
+                padding: 1.6rem;
+                box-shadow: var(--shadow-soft);
+            }
+            .login-card__header {
+                margin-bottom: 1rem;
+            }
+            .login-card__header h3 {
+                margin: 0;
+                font-size: 1.3rem;
+            }
+            .login-card__header p {
+                margin: 0.35rem 0 0 0;
+                color: var(--text-muted);
+            }
+            .sidebar-company-card,
+            .sidebar-user-card {
+                background: rgba(255, 255, 255, 0.68);
+                border: 1px solid rgba(219, 202, 183, 0.95);
+                border-radius: 18px;
+                padding: 0.95rem 1rem;
+                box-shadow: 0 12px 24px rgba(82, 89, 109, 0.08);
+                margin-bottom: 0.8rem;
+            }
+            .sidebar-company-card h3,
+            .sidebar-user-card h4 {
+                margin: 0;
+                color: var(--text-main);
+            }
+            .sidebar-company-card p,
+            .sidebar-user-card p {
+                margin: 0.3rem 0 0 0;
+                color: var(--text-muted);
+                font-size: 0.9rem;
+                line-height: 1.5;
+            }
+            .sidebar-label {
+                display: inline-block;
+                margin-bottom: 0.35rem;
+                color: var(--brand-strong);
+                font-size: 0.78rem;
+                font-weight: 700;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
             }
             .status-pill {
                 display: inline-block;
@@ -1291,12 +1533,33 @@ def inject_custom_css(page_title: str) -> None:
                 font-size: 0.85rem;
             }
             .total-box {
-                background: linear-gradient(180deg, #fff8f0 0%, var(--surface-strong) 100%);
-                border: 1px solid rgba(249, 115, 22, 0.18);
+                background: linear-gradient(180deg, #fff9f9 0%, var(--surface-strong) 100%);
+                border: 1px solid rgba(255, 75, 75, 0.18);
                 border-radius: 16px;
                 padding: 1rem 1.2rem;
                 color: var(--text-main);
                 box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+            }
+            @media (max-width: 900px) {
+                .page-header {
+                    padding: 1.35rem 1.1rem;
+                }
+                .page-header__title-row h1 {
+                    font-size: 1.65rem;
+                }
+                .toolbar-card {
+                    align-items: flex-start;
+                }
+                .login-shell {
+                    margin-top: 1.5rem;
+                }
+                .login-panel,
+                .login-card {
+                    padding: 1.25rem;
+                }
+                .login-meta {
+                    grid-template-columns: 1fr;
+                }
             }
         </style>
         """,
@@ -1332,7 +1595,7 @@ def inject_custom_css(page_title: str) -> None:
 
             ensureMeta("name", "apple-mobile-web-app-title", {json.dumps(app_short_name)});
             ensureMeta("name", "application-name", {json.dumps(app_short_name)});
-            ensureMeta("name", "theme-color", "#f97316");
+            ensureMeta("name", "theme-color", "#ff4b4b");
 
             const logo = {json.dumps(logo_data_uri or "")};
             if (logo) {{
@@ -1368,9 +1631,80 @@ def ensure_authenticated(page_title: str) -> dict:
     company = get_company_info()
     logo_bytes = get_logo_bytes(company)
 
-    spacer_left, content, spacer_right = st.columns([1, 1.2, 1])
-    with content:
-        st.markdown("### Acesso ao sistema")
+    company_name = safe_text(company.get("nome_fantasia"), "Empresa")
+    company_phone = safe_text(company.get("telefone"), "Nao informado")
+    company_email = safe_text(company.get("email"), "Nao informado")
+
+    st.markdown(
+        """
+        <style>
+            [data-testid="stSidebar"],
+            [data-testid="collapsedControl"] {
+                display: none !important;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    components.html(
+        """
+        <script>
+            const doc = window.parent.document;
+            const sidebar = doc.querySelector('[data-testid="stSidebar"]');
+            const collapsed = doc.querySelector('[data-testid="collapsedControl"]');
+            if (sidebar) sidebar.style.display = 'none';
+            if (collapsed) collapsed.style.display = 'none';
+        </script>
+        """,
+        height=0,
+    )
+
+    info_col, form_col = st.columns([1.1, 0.95], gap="large")
+    with info_col:
+        st.markdown(
+            f"""
+            <section class="login-shell">
+                <div class="login-panel">
+                    <span class="login-panel__eyebrow">Acesso seguro</span>
+                    <h1>Sistema de orcamentos</h1>
+                    <p>Controle clientes, servicos e propostas comerciais com uma experiencia administrativa consistente e profissional.</p>
+                    <div class="login-meta">
+                        <div class="login-meta__item">
+                            <span class="login-meta__label">Empresa</span>
+                            <span class="login-meta__value">{html.escape(company_name)}</span>
+                        </div>
+                        <div class="login-meta__item">
+                            <span class="login-meta__label">Pagina</span>
+                            <span class="login-meta__value">{html.escape(page_title)}</span>
+                        </div>
+                        <div class="login-meta__item">
+                            <span class="login-meta__label">Telefone</span>
+                            <span class="login-meta__value">{html.escape(company_phone)}</span>
+                        </div>
+                        <div class="login-meta__item">
+                            <span class="login-meta__label">Email</span>
+                            <span class="login-meta__value">{html.escape(company_email)}</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
+    with form_col:
+        st.markdown(
+            """
+            <section class="login-shell">
+                <div class="login-card">
+                    <div class="login-card__header">
+                        <h3>Entrar no sistema</h3>
+                        <p>Use suas credenciais para acessar o ambiente administrativo.</p>
+                    </div>
+                </div>
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
         with st.container(border=True):
             if logo_bytes:
                 st.image(logo_bytes, width=120)
@@ -1401,20 +1735,37 @@ def render_sidebar_branding(page_title: str) -> None:
     with st.sidebar:
         if logo_bytes:
             st.image(logo_bytes, width=128)
-        st.title(safe_text(company.get("nome_fantasia"), "Empresa"))
-        st.caption(page_title)
-
         company_details = []
         if company.get("cnpj"):
             company_details.append(f"CNPJ: {company['cnpj']}")
         if company.get("telefone"):
             company_details.append(f"Tel.: {company['telefone']}")
-        if company_details:
-            st.caption(" | ".join(company_details))
+        details_text = " | ".join(company_details) if company_details else "Sistema administrativo de orcamentos"
 
-        st.markdown("---")
+        st.markdown(
+            f"""
+            <div class="sidebar-company-card">
+                <span class="sidebar-label">Empresa</span>
+                <h3>{html.escape(safe_text(company.get("nome_fantasia"), "Empresa"))}</h3>
+                <p>{html.escape(page_title)}</p>
+                <p>{html.escape(details_text)}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="sidebar-user-card">
+                <span class="sidebar-label">Sessao</span>
+                <h4>{html.escape(safe_text(auth_user.get("nome"), "Administrador"))}</h4>
+                <p>Login: {html.escape(safe_text(auth_user.get("username"), "admin"))}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.write(f"**Usuário:** {safe_text(auth_user.get('nome'), 'Administrador')}")
-        st.caption(f"Login: {safe_text(auth_user.get('username'), 'admin')}")
+        st.caption("Use o menu lateral para navegar entre dashboard, cadastros, orcamentos e configuracoes.")
         if st.button("Sair", use_container_width=True):
             logout()
 
@@ -1601,7 +1952,7 @@ def build_quote_html(orcamento: dict) -> str:
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-start;
-                    border-bottom: 2px solid #f97316;
+                    border-bottom: 2px solid #ff4b4b;
                     padding-bottom: 12px;
                     margin-bottom: 18px;
                     gap: 20px;
@@ -1612,13 +1963,13 @@ def build_quote_html(orcamento: dict) -> str:
                     align-items: center;
                 }}
                 .title {{
-                    color: #f97316;
+                    color: #ff4b4b;
                     font-size: 26px;
                     font-weight: 700;
                     margin: 0 0 6px 0;
                 }}
                 .company-name {{
-                    color: #f97316;
+                    color: #ff4b4b;
                     font-size: 20px;
                     font-weight: 700;
                     margin: 0 0 4px 0;
@@ -1650,7 +2001,7 @@ def build_quote_html(orcamento: dict) -> str:
                     font-size: 13px;
                 }}
                 th {{
-                    background: #fff3e6;
+                    background: #f0f2f6;
                     text-align: left;
                 }}
                 .totals {{
@@ -1665,7 +2016,7 @@ def build_quote_html(orcamento: dict) -> str:
                 .total-final {{
                     font-size: 18px;
                     font-weight: 700;
-                    color: #f97316;
+                    color: #ff4b4b;
                 }}
                 .print-btn {{
                     margin-bottom: 16px;
@@ -1801,7 +2152,7 @@ def build_quote_pdf(orcamento: dict) -> bytes:
     def draw_page_header() -> float:
         nonlocal y
         header_height = 88
-        pdf.setFillColor(colors.HexColor("#F97316"))
+        pdf.setFillColor(colors.HexColor("#FF4B4B"))
         pdf.rect(0, height - header_height, width, header_height, fill=1, stroke=0)
         pdf.setFillColor(colors.white)
         _draw_company_logo(pdf, company, left, height - 12, 56, 56)
@@ -1980,7 +2331,7 @@ def build_quote_pdf(orcamento: dict) -> bytes:
     pdf.drawRightString(430, y, "Taxa adicional:")
     pdf.drawRightString(right, y, currency(orcamento.get("taxa_adicional", 0)))
     y -= 18
-    pdf.setFillColor(colors.HexColor("#F97316"))
+    pdf.setFillColor(colors.HexColor("#FF4B4B"))
     pdf.setFont("Helvetica-Bold", 13)
     pdf.drawRightString(430, y, "Total final:")
     pdf.drawRightString(right, y, currency(orcamento.get("total_final", 0)))
@@ -2135,29 +2486,15 @@ from __future__ import annotations
 
 import streamlit as st
 
-from database import (
-    create_product,
-    delete_product,
-    get_product,
-    get_product_categories,
-    init_db,
-    list_products,
-    update_product,
-)
+from components import render_data_hint, render_empty_state, render_page_header, render_section_header, setup_page
+from database import create_product, delete_product, get_product, get_product_categories, list_products, update_product
 from models import CATEGORIAS_PADRAO, UNIDADES_PADRAO
-from utils import configure_page, currency, ensure_authenticated, inject_custom_css, render_sidebar_branding
+from utils import currency
 
 
-PAGE_TITLE = "Produtos e Serviços"
+PAGE_TITLE = "Produtos e Servicos"
 
-configure_page(PAGE_TITLE)
-init_db()
-inject_custom_css(PAGE_TITLE)
-ensure_authenticated(PAGE_TITLE)
-render_sidebar_branding(PAGE_TITLE)
-
-st.title("Produtos e serviços")
-st.caption("Cadastre os itens que serão usados na montagem dos orçamentos.")
+setup_page(PAGE_TITLE)
 
 
 def resolve_category(choice: str, custom_value: str) -> str:
@@ -2168,18 +2505,25 @@ def resolve_unit(choice: str, custom_value: str) -> str:
     return custom_value.strip() if choice == "Outra" else choice
 
 
+render_page_header(
+    "Produtos e servicos",
+    "Mantenha o catalogo da empresa organizado para acelerar a criacao de orcamentos e padronizar os valores usados pelo time.",
+    eyebrow="Base comercial",
+    badge="Cadastro central",
+)
+
+render_section_header("Novo item", "Cadastre materiais, servicos e mao de obra com categoria, unidade e status.")
 with st.container(border=True):
-    st.subheader("Novo item")
     with st.form("form_novo_produto", clear_on_submit=True):
         col1, col2, col3 = st.columns(3)
-        nome = col1.text_input("Nome do produto/serviço *")
+        nome = col1.text_input("Nome do produto/servico *")
         categoria_opcao = col2.selectbox("Categoria *", CATEGORIAS_PADRAO + ["Outra"])
         unidade_opcao = col3.selectbox("Unidade *", UNIDADES_PADRAO + ["Outra"])
 
         col4, col5, col6 = st.columns([1, 1, 2])
-        preco_unitario = col4.number_input("Preço unitário *", min_value=0.0, step=1.0, format="%.2f")
+        preco_unitario = col4.number_input("Preco unitario *", min_value=0.0, step=1.0, format="%.2f")
         ativo = col5.toggle("Item ativo", value=True)
-        descricao = col6.text_input("Descrição")
+        descricao = col6.text_input("Descricao")
 
         categoria_custom = ""
         unidade_custom = ""
@@ -2209,7 +2553,8 @@ with st.container(border=True):
                 st.success("Item cadastrado com sucesso.")
                 st.rerun()
 
-st.markdown("### Consulta de itens")
+render_section_header("Consulta de itens", "Use os filtros para localizar itens do catalogo e carregar edicoes com rapidez.")
+render_data_hint("Catalogo padronizado", "Categorias consistentes facilitam filtros, comparacoes e a montagem de novos orcamentos.")
 f1, f2, f3 = st.columns([2, 1, 1])
 search = f1.text_input("Pesquisar por nome")
 category_filter = f2.selectbox("Filtrar por categoria", ["Todas"] + get_product_categories())
@@ -2235,7 +2580,7 @@ if produtos:
                 "Nome": item["nome"],
                 "Categoria": item["categoria"],
                 "Unidade": item["unidade"],
-                "Preço unitário": currency(item["preco_unitario"]),
+                "Preco unitario": currency(item["preco_unitario"]),
                 "Status": "Ativo" if item["ativo"] else "Inativo",
             }
             for item in produtos
@@ -2250,27 +2595,27 @@ if produtos:
 
     a1, a2, a3 = st.columns([1, 1, 2])
     with a1:
-        if st.button("Carregar para edição", use_container_width=True):
+        if st.button("Carregar para edicao", use_container_width=True):
             st.session_state["produto_edicao_id"] = selecionado_id
             st.rerun()
     with a2:
-        confirmar = st.checkbox("Confirmar exclusão", key="confirmar_exclusao_produto")
+        confirmar = st.checkbox("Confirmar exclusao", key="confirmar_exclusao_produto")
         if st.button("Excluir item", use_container_width=True) and confirmar:
             delete_product(selecionado_id)
-            st.success("Item excluído com sucesso.")
+            st.success("Item excluido com sucesso.")
             if st.session_state.get("produto_edicao_id") == selecionado_id:
                 del st.session_state["produto_edicao_id"]
             st.rerun()
     with a3:
-        st.caption("A exclusão remove o item do cadastro. Orçamentos antigos preservam o histórico do item.")
+        st.caption("A exclusao remove o item do cadastro. Orcamentos antigos preservam o historico do item.")
 else:
-    st.info("Nenhum item encontrado com os filtros informados.")
+    render_empty_state("Nenhum item encontrado", "Ajuste os filtros ou cadastre um novo item para iniciar o catalogo.")
 
 produto_edicao_id = st.session_state.get("produto_edicao_id")
 if produto_edicao_id:
     produto = get_product(produto_edicao_id)
     if produto:
-        st.markdown("### Editar item")
+        render_section_header("Editar item", "Atualize dados comerciais sem alterar o historico de orcamentos antigos.")
         categorias_edicao = CATEGORIAS_PADRAO + ["Outra"]
         unidades_edicao = UNIDADES_PADRAO + ["Outra"]
 
@@ -2279,7 +2624,7 @@ if produto_edicao_id:
 
         with st.form("form_editar_produto"):
             e1, e2, e3 = st.columns(3)
-            nome = e1.text_input("Nome do produto/serviço *", value=produto["nome"])
+            nome = e1.text_input("Nome do produto/servico *", value=produto["nome"])
             categoria_opcao = e2.selectbox(
                 "Categoria *",
                 categorias_edicao,
@@ -2293,14 +2638,14 @@ if produto_edicao_id:
 
             e4, e5, e6 = st.columns([1, 1, 2])
             preco_unitario = e4.number_input(
-                "Preço unitário *",
+                "Preco unitario *",
                 min_value=0.0,
                 value=float(produto["preco_unitario"]),
                 step=1.0,
                 format="%.2f",
             )
             ativo = e5.toggle("Item ativo", value=bool(produto["ativo"]))
-            descricao = e6.text_input("Descrição", value=produto["descricao"] or "")
+            descricao = e6.text_input("Descricao", value=produto["descricao"] or "")
 
             categoria_custom = ""
             unidade_custom = ""
@@ -2310,7 +2655,7 @@ if produto_edicao_id:
                 unidade_custom = st.text_input("Nova unidade", value=produto["unidade"])
 
             save_col, cancel_col = st.columns(2)
-            salvar = save_col.form_submit_button("Salvar alterações", use_container_width=True)
+            salvar = save_col.form_submit_button("Salvar alteracoes", use_container_width=True)
             cancelar = cancel_col.form_submit_button("Cancelar", use_container_width=True)
 
             if salvar:
@@ -2342,30 +2687,30 @@ from __future__ import annotations
 
 import streamlit as st
 
-from database import create_client, delete_client, get_client, init_db, list_clients, update_client
-from utils import configure_page, ensure_authenticated, inject_custom_css, render_sidebar_branding
+from components import render_data_hint, render_empty_state, render_page_header, render_section_header, setup_page
+from database import create_client, delete_client, get_client, list_clients, update_client
 
 
 PAGE_TITLE = "Clientes"
 
-configure_page(PAGE_TITLE)
-init_db()
-inject_custom_css(PAGE_TITLE)
-ensure_authenticated(PAGE_TITLE)
-render_sidebar_branding(PAGE_TITLE)
+setup_page(PAGE_TITLE)
 
-st.title("Clientes")
-st.caption("Mantenha o cadastro de clientes organizado para montar orçamentos rapidamente.")
+render_page_header(
+    "Clientes",
+    "Organize os dados de contato e historico basico dos clientes para agilizar novos orcamentos e consultas futuras.",
+    eyebrow="Relacionamento comercial",
+    badge="Base ativa",
+)
 
+render_section_header("Novo cliente", "Cadastre clientes residenciais e corporativos em um fluxo simples e padronizado.")
 with st.container(border=True):
-    st.subheader("Novo cliente")
     with st.form("form_novo_cliente", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
         nome = c1.text_input("Nome *")
         telefone = c2.text_input("Telefone")
         email = c3.text_input("Email")
-        endereco = st.text_input("Endereço")
-        observacoes = st.text_area("Observações", height=100)
+        endereco = st.text_input("Endereco")
+        observacoes = st.text_area("Observacoes", height=100)
         salvar = st.form_submit_button("Cadastrar cliente", use_container_width=True)
 
         if salvar:
@@ -2384,7 +2729,8 @@ with st.container(border=True):
                 st.success("Cliente cadastrado com sucesso.")
                 st.rerun()
 
-st.markdown("### Lista de clientes")
+render_section_header("Lista de clientes", "Use a pesquisa para localizar rapidamente registros e carregar uma edicao.")
+render_data_hint("Cadastro limpo", "Manter telefone e email atualizados melhora o compartilhamento de propostas.")
 search = st.text_input("Pesquisar cliente por nome")
 clientes = list_clients(search=search)
 
@@ -2396,7 +2742,7 @@ if clientes:
                 "Nome": cliente["nome"],
                 "Telefone": cliente["telefone"] or "-",
                 "Email": cliente["email"] or "-",
-                "Endereço": cliente["endereco"] or "-",
+                "Endereco": cliente["endereco"] or "-",
             }
             for cliente in clientes
         ],
@@ -2414,36 +2760,36 @@ if clientes:
             st.session_state["cliente_edicao_id"] = selecionado_id
             st.rerun()
     with a2:
-        confirmar = st.checkbox("Confirmar exclusão", key="confirmar_exclusao_cliente")
+        confirmar = st.checkbox("Confirmar exclusao", key="confirmar_exclusao_cliente")
         if st.button("Excluir cliente", use_container_width=True) and confirmar:
             try:
                 delete_client(selecionado_id)
-                st.success("Cliente excluído com sucesso.")
+                st.success("Cliente excluido com sucesso.")
                 if st.session_state.get("cliente_edicao_id") == selecionado_id:
                     del st.session_state["cliente_edicao_id"]
                 st.rerun()
             except ValueError as exc:
                 st.error(str(exc))
     with a3:
-        st.caption("Clientes com orçamentos vinculados não podem ser removidos para preservar o histórico.")
+        st.caption("Clientes com orcamentos vinculados nao podem ser removidos para preservar o historico.")
 else:
-    st.info("Nenhum cliente cadastrado ainda.")
+    render_empty_state("Nenhum cliente cadastrado", "Cadastre o primeiro cliente para liberar a criacao de orcamentos.")
 
 cliente_edicao_id = st.session_state.get("cliente_edicao_id")
 if cliente_edicao_id:
     cliente = get_client(cliente_edicao_id)
     if cliente:
-        st.markdown("### Editar cliente")
+        render_section_header("Editar cliente", "Atualize dados de contato sem alterar o historico dos documentos ja emitidos.")
         with st.form("form_editar_cliente"):
             e1, e2, e3 = st.columns(3)
             nome = e1.text_input("Nome *", value=cliente["nome"])
             telefone = e2.text_input("Telefone", value=cliente["telefone"] or "")
             email = e3.text_input("Email", value=cliente["email"] or "")
-            endereco = st.text_input("Endereço", value=cliente["endereco"] or "")
-            observacoes = st.text_area("Observações", value=cliente["observacoes"] or "", height=100)
+            endereco = st.text_input("Endereco", value=cliente["endereco"] or "")
+            observacoes = st.text_area("Observacoes", value=cliente["observacoes"] or "", height=100)
 
             save_col, cancel_col = st.columns(2)
-            salvar = save_col.form_submit_button("Salvar alterações", use_container_width=True)
+            salvar = save_col.form_submit_button("Salvar alteracoes", use_container_width=True)
             cancelar = cancel_col.form_submit_button("Cancelar", use_container_width=True)
 
             if salvar:
@@ -2474,36 +2820,30 @@ from datetime import date
 
 import streamlit as st
 
-from database import create_orcamento, get_next_quote_number, get_orcamento, init_db, list_clients, list_products
+from components import (
+    render_data_hint,
+    render_empty_state,
+    render_info_card,
+    render_page_header,
+    render_section_header,
+    setup_page,
+)
+from database import create_orcamento, get_next_quote_number, get_orcamento, list_clients, list_products
 from models import STATUS_ORCAMENTO, TIPOS_DESCONTO
 from services.calculations import calcular_subtotal_item, calcular_totais
-from utils import (
-    configure_page,
-    currency,
-    default_validity_date,
-    ensure_authenticated,
-    init_quote_state,
-    inject_custom_css,
-    load_quote_into_state,
-    render_sidebar_branding,
-    reset_quote_state,
-)
+from utils import currency, default_validity_date, init_quote_state, load_quote_into_state, reset_quote_state
 
 
-PAGE_TITLE = "Novo Orçamento"
+PAGE_TITLE = "Novo Orcamento"
 
-configure_page(PAGE_TITLE)
-init_db()
-inject_custom_css(PAGE_TITLE)
-ensure_authenticated(PAGE_TITLE)
-render_sidebar_branding(PAGE_TITLE)
+setup_page(PAGE_TITLE)
 init_quote_state()
 
 if st.session_state.get("orcamento_duplicar_id"):
     original = get_orcamento(st.session_state["orcamento_duplicar_id"])
     if original:
         load_quote_into_state(original)
-        st.success("Dados do orçamento carregados para duplicação. Ajuste o que precisar e salve como novo.")
+        st.success("Dados do orcamento carregados para duplicacao. Ajuste o que precisar e salve como novo.")
     del st.session_state["orcamento_duplicar_id"]
 
 clientes = list_clients()
@@ -2529,94 +2869,108 @@ if produtos_ativos and st.session_state.get("item_produto_id") not in produto_ma
     st.session_state["item_produto_id"] = produtos_ativos[0]["id"]
     carregar_preco_padrao()
 
-st.title("Novo orçamento")
-st.caption("Monte o orçamento com itens cadastrados, cálculo automático e salvamento no banco local.")
+render_page_header(
+    "Novo orcamento",
+    "Monte propostas com itens cadastrados, calculo automatico e um fluxo seguro para salvar no banco local.",
+    eyebrow="Operacao comercial",
+    badge="Calculo automatico",
+)
 
 if not clientes:
-    st.warning("Cadastre pelo menos um cliente antes de criar um orçamento.")
+    st.warning("Cadastre pelo menos um cliente antes de criar um orcamento.")
     st.stop()
 
 cliente_ids = [cliente["id"] for cliente in clientes]
 if st.session_state["orc_cliente_id"] not in cliente_ids:
     st.session_state["orc_cliente_id"] = cliente_ids[0]
 
+render_data_hint(
+    "Fluxo recomendado",
+    "Preencha os dados principais, adicione os itens do servico e revise os totais antes de salvar o documento.",
+)
+
 col_meta, col_itens = st.columns([1.15, 1.2], gap="large")
 
 with col_meta:
-    st.subheader("Dados principais")
-    numero_orcamento = get_next_quote_number()
-    st.text_input("Número do orçamento", value=numero_orcamento, disabled=True)
+    render_section_header("Dados principais", "Informacoes gerais do documento e da execucao prevista.")
+    with st.container(border=True):
+        numero_orcamento = get_next_quote_number()
+        st.text_input("Numero do orcamento", value=numero_orcamento, disabled=True)
 
-    cliente_opcoes = {cliente["id"]: cliente["nome"] for cliente in clientes}
-    st.selectbox(
-        "Cliente *",
-        options=cliente_ids,
-        format_func=lambda client_id: cliente_opcoes[client_id],
-        key="orc_cliente_id",
-    )
-    st.date_input("Data do orçamento *", key="orc_data")
-    st.text_input("Responsável pelo orçamento *", key="orc_responsavel")
-    st.selectbox("Status", STATUS_ORCAMENTO, key="orc_status")
-    st.date_input("Validade do orçamento", key="orc_validade")
-    st.number_input("Metragem total da obra (m2)", min_value=0.0, step=1.0, key="orc_metragem_total")
-    st.text_input("Prazo estimado da execução", key="orc_prazo_execucao")
-    st.text_input("Forma de pagamento", key="orc_forma_pagamento")
-    st.text_area("Observações gerais", key="orc_observacoes", height=140)
+        cliente_opcoes = {cliente["id"]: cliente["nome"] for cliente in clientes}
+        st.selectbox(
+            "Cliente *",
+            options=cliente_ids,
+            format_func=lambda client_id: cliente_opcoes[client_id],
+            key="orc_cliente_id",
+        )
+        st.date_input("Data do orcamento *", key="orc_data")
+        st.text_input("Responsavel pelo orcamento *", key="orc_responsavel")
+        st.selectbox("Status", STATUS_ORCAMENTO, key="orc_status")
+        st.date_input("Validade do orcamento", key="orc_validade")
+        st.number_input("Metragem total da obra (m2)", min_value=0.0, step=1.0, key="orc_metragem_total")
+        st.text_input("Prazo estimado da execucao", key="orc_prazo_execucao")
+        st.text_input("Forma de pagamento", key="orc_forma_pagamento")
+        st.text_area("Observacoes gerais", key="orc_observacoes", height=140)
 
 with col_itens:
-    st.subheader("Adicionar item")
-    if produtos_ativos:
-        produto_ids = [produto["id"] for produto in produtos_ativos]
-        st.selectbox(
-            "Item cadastrado *",
-            options=produto_ids,
-            format_func=lambda produto_id: f"{produto_map[produto_id]['nome']} ({produto_map[produto_id]['unidade']})",
-            key="item_produto_id",
-            on_change=carregar_preco_padrao,
-        )
-        produto_selecionado = produto_map[st.session_state["item_produto_id"]]
-        st.caption(
-            f"Categoria: {produto_selecionado['categoria']} | Preço padrão: {currency(produto_selecionado['preco_unitario'])}"
-        )
-        i1, i2 = st.columns(2)
-        i1.number_input("Quantidade *", min_value=0.0, step=1.0, key="item_quantidade")
-        i2.number_input("Valor unitário *", min_value=0.0, step=1.0, format="%.2f", key="item_valor_unitario")
-        st.text_area("Observação do item", key="item_observacoes", height=90)
+    render_section_header("Adicionar item", "Selecione um item ativo do catalogo e ajuste quantidade, preco e observacoes.")
+    with st.container(border=True):
+        if produtos_ativos:
+            produto_ids = [produto["id"] for produto in produtos_ativos]
+            st.selectbox(
+                "Item cadastrado *",
+                options=produto_ids,
+                format_func=lambda produto_id: f"{produto_map[produto_id]['nome']} ({produto_map[produto_id]['unidade']})",
+                key="item_produto_id",
+                on_change=carregar_preco_padrao,
+            )
+            produto_selecionado = produto_map[st.session_state["item_produto_id"]]
+            st.caption(
+                f"Categoria: {produto_selecionado['categoria']} | Preco padrao: {currency(produto_selecionado['preco_unitario'])}"
+            )
+            i1, i2 = st.columns(2)
+            i1.number_input("Quantidade *", min_value=0.0, step=1.0, key="item_quantidade")
+            i2.number_input("Valor unitario *", min_value=0.0, step=1.0, format="%.2f", key="item_valor_unitario")
+            st.text_area("Observacao do item", key="item_observacoes", height=90)
 
-        subtotal_preview = calcular_subtotal_item(
-            st.session_state["item_quantidade"], st.session_state["item_valor_unitario"]
-        )
-        st.info(f"Subtotal do item: {currency(subtotal_preview)}")
+            subtotal_preview = calcular_subtotal_item(
+                st.session_state["item_quantidade"], st.session_state["item_valor_unitario"]
+            )
+            render_data_hint("Preview do item", f"Subtotal atual: {currency(subtotal_preview)}")
 
-        if st.button("Adicionar item ao orçamento", use_container_width=True):
-            quantidade = float(st.session_state["item_quantidade"])
-            valor_unitario = float(st.session_state["item_valor_unitario"])
-            if quantidade <= 0:
-                st.error("A quantidade deve ser maior que zero.")
-            elif valor_unitario < 0:
-                st.error("O valor unitário não pode ser negativo.")
-            else:
-                st.session_state["orcamento_itens_temp"].append(
-                    {
-                        "produto_id": produto_selecionado["id"],
-                        "item_nome": produto_selecionado["nome"],
-                        "categoria": produto_selecionado["categoria"],
-                        "unidade": produto_selecionado["unidade"],
-                        "quantidade": quantidade,
-                        "valor_unitario": valor_unitario,
-                        "subtotal": subtotal_preview,
-                        "observacoes": st.session_state["item_observacoes"].strip(),
-                    }
-                )
-                st.session_state["item_quantidade"] = 1.0
-                st.session_state["item_valor_unitario"] = float(produto_selecionado["preco_unitario"])
-                st.session_state["item_observacoes"] = ""
-                st.success("Item adicionado com sucesso.")
-                st.rerun()
-    else:
-        st.warning("Nenhum produto ou serviço ativo encontrado. Cadastre itens antes de montar o orçamento.")
+            if st.button("Adicionar item ao orcamento", use_container_width=True):
+                quantidade = float(st.session_state["item_quantidade"])
+                valor_unitario = float(st.session_state["item_valor_unitario"])
+                if quantidade <= 0:
+                    st.error("A quantidade deve ser maior que zero.")
+                elif valor_unitario < 0:
+                    st.error("O valor unitario nao pode ser negativo.")
+                else:
+                    st.session_state["orcamento_itens_temp"].append(
+                        {
+                            "produto_id": produto_selecionado["id"],
+                            "item_nome": produto_selecionado["nome"],
+                            "categoria": produto_selecionado["categoria"],
+                            "unidade": produto_selecionado["unidade"],
+                            "quantidade": quantidade,
+                            "valor_unitario": valor_unitario,
+                            "subtotal": subtotal_preview,
+                            "observacoes": st.session_state["item_observacoes"].strip(),
+                        }
+                    )
+                    st.session_state["item_quantidade"] = 1.0
+                    st.session_state["item_valor_unitario"] = float(produto_selecionado["preco_unitario"])
+                    st.session_state["item_observacoes"] = ""
+                    st.success("Item adicionado com sucesso.")
+                    st.rerun()
+        else:
+            render_empty_state(
+                "Nenhum item ativo encontrado",
+                "Cadastre produtos ou servicos ativos antes de montar um novo orcamento.",
+            )
 
-st.markdown("### Itens do orçamento")
+render_section_header("Itens do orcamento", "Confira os itens adicionados e remova linhas quando necessario.")
 itens_temp = st.session_state["orcamento_itens_temp"]
 if itens_temp:
     st.dataframe(
@@ -2626,9 +2980,9 @@ if itens_temp:
                 "Categoria": item["categoria"],
                 "Unidade": item["unidade"],
                 "Quantidade": item["quantidade"],
-                "Valor unitário": currency(item["valor_unitario"]),
+                "Valor unitario": currency(item["valor_unitario"]),
                 "Subtotal": currency(item["subtotal"]),
-                "Observação": item["observacoes"] or "-",
+                "Observacao": item["observacoes"] or "-",
             }
             for item in itens_temp
         ],
@@ -2645,12 +2999,12 @@ if itens_temp:
     )
     if r2.button("Remover item", use_container_width=True):
         itens_temp.pop(remover_idx)
-        st.success("Item removido do orçamento.")
+        st.success("Item removido do orcamento.")
         st.rerun()
 else:
-    st.info("Adicione pelo menos um item para salvar o orçamento.")
+    render_empty_state("Seu rascunho ainda nao tem itens", "Adicione pelo menos um item para liberar o salvamento do documento.")
 
-st.markdown("### Cálculo automático")
+render_section_header("Calculo automatico", "Desconto e taxa adicional sao aplicados automaticamente sobre o subtotal.")
 t1, t2, t3 = st.columns(3)
 t1.selectbox("Tipo de desconto", TIPOS_DESCONTO, key="orc_desconto_tipo")
 if st.session_state["orc_desconto_tipo"] == "Percentual":
@@ -2674,27 +3028,19 @@ totais = calcular_totais(
 
 tc1, tc2, tc3, tc4 = st.columns(4)
 with tc1:
-    st.markdown(f'<div class="total-box"><strong>Subtotal</strong><br>{currency(totais["subtotal"])}</div>', unsafe_allow_html=True)
+    render_info_card("Subtotal", currency(totais["subtotal"]), "Soma de todos os itens do rascunho")
 with tc2:
-    st.markdown(
-        f'<div class="total-box"><strong>Desconto</strong><br>{currency(totais["desconto_aplicado"])}</div>',
-        unsafe_allow_html=True,
-    )
+    render_info_card("Desconto", currency(totais["desconto_aplicado"]), "Aplicado de acordo com a regra selecionada")
 with tc3:
-    st.markdown(
-        f'<div class="total-box"><strong>Taxa adicional</strong><br>{currency(totais["taxa_adicional"])}</div>',
-        unsafe_allow_html=True,
-    )
+    render_info_card("Taxa adicional", currency(totais["taxa_adicional"]), "Custos extras incluidos no documento")
 with tc4:
-    st.markdown(
-        f'<div class="total-box"><strong>Total final</strong><br>{currency(totais["total_final"])}</div>',
-        unsafe_allow_html=True,
-    )
+    render_info_card("Total final", currency(totais["total_final"]), "Valor final apresentado ao cliente")
 
 s1, s2 = st.columns([1, 1])
-if s1.button("Salvar orçamento", use_container_width=True, type="primary"):
+if s1.button("Salvar orcamento", use_container_width=True, type="primary"):
+    numero_orcamento = get_next_quote_number()
     if not st.session_state["orc_responsavel"].strip():
-        st.error("Informe o nome do responsável pelo orçamento.")
+        st.error("Informe o nome do responsavel pelo orcamento.")
     elif not itens_temp:
         st.error("Adicione pelo menos um item antes de salvar.")
     else:
@@ -2722,7 +3068,7 @@ if s1.button("Salvar orçamento", use_container_width=True, type="primary"):
             itens_temp,
         )
         reset_quote_state()
-        st.success("Orçamento salvo com sucesso.")
+        st.success("Orcamento salvo com sucesso.")
         st.rerun()
 
 if s2.button("Limpar rascunho atual", use_container_width=True):
@@ -2738,37 +3084,28 @@ from datetime import date, timedelta
 import streamlit as st
 import streamlit.components.v1 as components
 
-from database import delete_orcamento, get_orcamento, init_db, list_orcamentos, update_orcamento_status
+from components import render_data_hint, render_empty_state, render_info_card, render_page_header, render_section_header, setup_page
+from database import delete_orcamento, get_orcamento, list_orcamentos, update_orcamento_status
 from models import STATUS_ORCAMENTO
-from utils import (
-    build_quote_html,
-    build_quote_pdf,
-    build_share_links,
-    configure_page,
-    currency,
-    ensure_authenticated,
-    inject_custom_css,
-    render_sidebar_branding,
-    render_status_badge,
-    safe_text,
+from utils import build_quote_html, build_quote_pdf, build_share_links, currency, render_status_badge, safe_text
+
+
+PAGE_TITLE = "Orcamentos"
+
+setup_page(PAGE_TITLE)
+
+render_page_header(
+    "Orcamentos salvos",
+    "Consulte, filtre, visualize detalhes e acompanhe o status de cada proposta emitida pela empresa.",
+    eyebrow="Acompanhamento comercial",
+    badge="Historico completo",
 )
 
-
-PAGE_TITLE = "Orçamentos"
-
-configure_page(PAGE_TITLE)
-init_db()
-inject_custom_css(PAGE_TITLE)
-ensure_authenticated(PAGE_TITLE)
-render_sidebar_branding(PAGE_TITLE)
-
-st.title("Orçamentos salvos")
-st.caption("Consulte, filtre, visualize detalhes e acompanhe o status de cada orçamento.")
-
+render_section_header("Filtros e consulta", "Refine a listagem por cliente, status e periodo para localizar um documento.")
 f1, f2, f3, f4 = st.columns([2, 1, 1, 1])
 search = f1.text_input("Pesquisar por cliente")
 status = f2.selectbox("Filtrar por status", ["Todos"] + STATUS_ORCAMENTO)
-filtrar_periodo = f3.checkbox("Filtrar período", value=False)
+filtrar_periodo = f3.checkbox("Filtrar periodo", value=False)
 data_inicio = ""
 data_fim = ""
 if filtrar_periodo:
@@ -2782,11 +3119,16 @@ orcamentos = list_orcamentos(
     data_fim=data_fim,
 )
 
+render_data_hint(
+    "Leitura rapida",
+    "Abra um registro para revisar itens, exportar documentos, compartilhar links e atualizar o status do orcamento.",
+)
+
 if orcamentos:
     st.dataframe(
         [
             {
-                "Número": orcamento["numero"],
+                "Numero": orcamento["numero"],
                 "Cliente": orcamento["cliente_nome"],
                 "Data": orcamento["data_orcamento"],
                 "Status": orcamento["status"],
@@ -2799,7 +3141,7 @@ if orcamentos:
     )
 
     options = {f"{orcamento['numero']} - {orcamento['cliente_nome']}": orcamento["id"] for orcamento in orcamentos}
-    selecionado_label = st.selectbox("Selecione um orçamento", list(options.keys()))
+    selecionado_label = st.selectbox("Selecione um orcamento", list(options.keys()))
     selecionado_id = options[selecionado_label]
 
     a1, a2, a3 = st.columns([1, 1, 1])
@@ -2808,79 +3150,57 @@ if orcamentos:
             st.session_state["orcamento_detalhe_id"] = selecionado_id
             st.rerun()
     with a2:
-        if st.button("Duplicar orçamento", use_container_width=True):
+        if st.button("Duplicar orcamento", use_container_width=True):
             st.session_state["orcamento_duplicar_id"] = selecionado_id
             st.switch_page("pages/3_Novo_Orcamento.py")
     with a3:
-        confirmar_exclusao = st.checkbox("Confirmar exclusão", key="confirmar_exclusao_orcamento")
-        if st.button("Excluir orçamento", use_container_width=True) and confirmar_exclusao:
+        confirmar_exclusao = st.checkbox("Confirmar exclusao", key="confirmar_exclusao_orcamento")
+        if st.button("Excluir orcamento", use_container_width=True) and confirmar_exclusao:
             delete_orcamento(selecionado_id)
             if st.session_state.get("orcamento_detalhe_id") == selecionado_id:
                 del st.session_state["orcamento_detalhe_id"]
-            st.success("Orçamento excluído com sucesso.")
+            st.success("Orcamento excluido com sucesso.")
             st.rerun()
 else:
-    st.info("Nenhum orçamento encontrado com os filtros atuais.")
+    render_empty_state("Nenhum orcamento encontrado", "Ajuste os filtros ou crie um novo documento para iniciar o historico.")
 
 orcamento_detalhe_id = st.session_state.get("orcamento_detalhe_id")
 if orcamento_detalhe_id:
     detalhe = get_orcamento(orcamento_detalhe_id)
     if detalhe:
-        st.markdown("### Detalhes do orçamento")
-        info1, info2, info3 = st.columns([1.5, 1, 1])
-        info1.markdown(
-            f"""
-            <div class="section-card">
-                <h4 style="margin-top:0;">{detalhe['numero']}</h4>
-                <p style="margin:0.2rem 0;"><strong>Cliente:</strong> {detalhe['cliente_nome']}</p>
-                <p style="margin:0.2rem 0;"><strong>Responsável:</strong> {detalhe['responsavel']}</p>
-                <p style="margin:0.2rem 0;"><strong>Data:</strong> {detalhe['data_orcamento']}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        info2.markdown(
-            f"""
-            <div class="section-card">
-                <h4 style="margin-top:0;">Status</h4>
-                {render_status_badge(detalhe['status'])}
-                <p style="margin:0.8rem 0 0 0;"><strong>Validade:</strong> {safe_text(detalhe['validade'])}</p>
-                <p style="margin:0.2rem 0 0 0;"><strong>Pagamento:</strong> {safe_text(detalhe['forma_pagamento'])}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        info3.markdown(
-            f"""
-            <div class="section-card">
-                <h4 style="margin-top:0;">Total final</h4>
-                <div style="font-size:1.8rem; font-weight:700; color:#1877f2;">{currency(detalhe['total_final'])}</div>
-                <p style="margin:0.8rem 0 0 0;"><strong>Metragem:</strong> {float(detalhe['metragem_total'] or 0):,.2f} m2</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        render_section_header("Detalhes do orcamento", "Visualizacao completa do documento com resumo, itens e acoes.")
+        info1, info2, info3 = st.columns(3)
+        with info1:
+            render_info_card(detalhe["numero"], safe_text(detalhe["cliente_nome"]), safe_text(detalhe["data_orcamento"]))
+        with info2:
+            render_info_card("Status", safe_text(detalhe["status"]), safe_text(detalhe["validade"]))
+            st.markdown(render_status_badge(detalhe["status"]), unsafe_allow_html=True)
+        with info3:
+            render_info_card("Total final", currency(detalhe["total_final"]), f"{float(detalhe['metragem_total'] or 0):,.2f} m2")
 
         cliente_col, resumo_col = st.columns(2, gap="large")
         with cliente_col:
-            st.markdown("#### Dados do cliente")
-            st.write(f"**Nome:** {detalhe['cliente_nome']}")
-            st.write(f"**Telefone:** {safe_text(detalhe['cliente_telefone'])}")
-            st.write(f"**Email:** {safe_text(detalhe['cliente_email'])}")
-            st.write(f"**Endereço:** {safe_text(detalhe['cliente_endereco'])}")
-            st.write(f"**Observações:** {safe_text(detalhe['cliente_observacoes'])}")
+            with st.container(border=True):
+                render_section_header("Dados do cliente")
+                st.write(f"**Nome:** {detalhe['cliente_nome']}")
+                st.write(f"**Telefone:** {safe_text(detalhe['cliente_telefone'])}")
+                st.write(f"**Email:** {safe_text(detalhe['cliente_email'])}")
+                st.write(f"**Endereco:** {safe_text(detalhe['cliente_endereco'])}")
+                st.write(f"**Observacoes:** {safe_text(detalhe['cliente_observacoes'])}")
         with resumo_col:
-            st.markdown("#### Resumo financeiro")
-            st.write(f"**Subtotal:** {currency(detalhe['subtotal'])}")
-            if detalhe["desconto_tipo"] == "Percentual":
-                desconto_aplicado = float(detalhe["subtotal"]) * (float(detalhe["desconto_percentual"]) / 100)
-                st.write(f"**Desconto:** {detalhe['desconto_percentual']:.2f}% ({currency(desconto_aplicado)})")
-            else:
-                st.write(f"**Desconto:** {currency(detalhe['desconto_valor'])}")
-            st.write(f"**Taxa adicional:** {currency(detalhe['taxa_adicional'])}")
-            st.write(f"**Prazo estimado:** {safe_text(detalhe['prazo_execucao'])}")
+            with st.container(border=True):
+                render_section_header("Resumo financeiro")
+                st.write(f"**Subtotal:** {currency(detalhe['subtotal'])}")
+                if detalhe["desconto_tipo"] == "Percentual":
+                    desconto_aplicado = float(detalhe["subtotal"]) * (float(detalhe["desconto_percentual"]) / 100)
+                    st.write(f"**Desconto:** {detalhe['desconto_percentual']:.2f}% ({currency(desconto_aplicado)})")
+                else:
+                    st.write(f"**Desconto:** {currency(detalhe['desconto_valor'])}")
+                st.write(f"**Taxa adicional:** {currency(detalhe['taxa_adicional'])}")
+                st.write(f"**Prazo estimado:** {safe_text(detalhe['prazo_execucao'])}")
+                st.write(f"**Pagamento:** {safe_text(detalhe['forma_pagamento'])}")
 
-        st.markdown("#### Itens")
+        render_section_header("Itens", "Itens que compoem o documento selecionado.")
         st.dataframe(
             [
                 {
@@ -2888,9 +3208,9 @@ if orcamento_detalhe_id:
                     "Categoria": item["categoria"] or "-",
                     "Unidade": item["unidade"] or "-",
                     "Quantidade": item["quantidade"],
-                    "Valor unitário": currency(item["valor_unitario"]),
+                    "Valor unitario": currency(item["valor_unitario"]),
                     "Subtotal": currency(item["subtotal"]),
-                    "Observação": item["observacoes"] or "-",
+                    "Observacao": item["observacoes"] or "-",
                 }
                 for item in detalhe["itens"]
             ],
@@ -2898,10 +3218,11 @@ if orcamento_detalhe_id:
             hide_index=True,
         )
 
-        st.markdown("#### Observações gerais")
-        st.write(safe_text(detalhe["observacoes"]))
+        with st.container(border=True):
+            render_section_header("Observacoes gerais")
+            st.write(safe_text(detalhe["observacoes"]))
 
-        st.markdown("#### Ações")
+        render_section_header("Acoes", "Atualize o status, exporte arquivos ou compartilhe a proposta com o cliente.")
         u1, u2, u3 = st.columns([1, 1, 1])
         novo_status = u1.selectbox(
             "Atualizar status",
@@ -2923,14 +3244,14 @@ if orcamento_detalhe_id:
             use_container_width=True,
         )
         u3.download_button(
-            "Baixar HTML imprimível",
+            "Baixar HTML imprimivel",
             data=html_export,
             file_name=f"{detalhe['numero']}.html",
             mime="text/html",
             use_container_width=True,
         )
 
-        st.markdown("#### Compartilhar")
+        render_section_header("Compartilhar", "Use os links diretos ou a mensagem pronta para enviar a proposta ao cliente.")
         share_data = build_share_links(detalhe)
         share1, share2 = st.columns(2)
         with share1:
@@ -2942,13 +3263,13 @@ if orcamento_detalhe_id:
             if share_data["whatsapp"]:
                 st.link_button("Compartilhar no WhatsApp", share_data["whatsapp"], use_container_width=True)
             else:
-                st.caption("Cliente sem telefone válido para link direto no WhatsApp.")
+                st.caption("Cliente sem telefone valido para link direto no WhatsApp.")
 
         with st.expander("Mensagem pronta para compartilhar", expanded=False):
             st.code(share_data["message"], language="text")
-            st.caption("Dica: você pode enviar a mensagem pronta e anexar o PDF baixado.")
+            st.caption("Voce pode enviar a mensagem pronta e anexar o PDF baixado.")
 
-        with st.expander("Visualizar layout limpo para impressão", expanded=False):
+        with st.expander("Visualizar layout limpo para impressao", expanded=False):
             components.html(html_export, height=700, scrolling=True)
 
 ----- pages\5_Configuracoes.py -----
@@ -2958,41 +3279,45 @@ import base64
 
 import streamlit as st
 
-from database import get_company_info, init_db, upsert_company_info
-from utils import configure_page, ensure_authenticated, get_logo_bytes, inject_custom_css, render_sidebar_branding
+from components import render_data_hint, render_empty_state, render_page_header, render_section_header, setup_page
+from database import get_company_info, upsert_company_info
+from utils import get_logo_bytes
 
 
-PAGE_TITLE = "Configurações"
+PAGE_TITLE = "Configuracoes"
 MAX_LOGO_SIZE = 2 * 1024 * 1024
 
-configure_page(PAGE_TITLE)
-init_db()
-inject_custom_css(PAGE_TITLE)
-ensure_authenticated(PAGE_TITLE)
-render_sidebar_branding(PAGE_TITLE)
+setup_page(PAGE_TITLE)
 
 company = get_company_info()
 
-st.title("Configurações")
-st.caption("Atualize os dados da empresa, o nome do app e a logo usada na interface e nos documentos.")
+render_page_header(
+    "Configuracoes da empresa",
+    "Atualize os dados institucionais, o nome do app e a identidade visual usada em toda a experiencia do sistema.",
+    eyebrow="Identidade e parametros",
+    badge="Branding centralizado",
+)
 
-st.markdown("### Logo e identidade")
+render_section_header("Logo e identidade", "A logo aparece na sidebar, nos documentos exportados e no icone do app.")
+render_data_hint("Recomendacao", "Use uma imagem quadrada em PNG com fundo transparente e tamanho maximo de 2 MB.")
 logo_bytes = get_logo_bytes(company)
 preview_col, helper_col = st.columns([1, 1.4], gap="large")
 with preview_col:
     if logo_bytes:
-        st.image(logo_bytes, caption="Logo atual", use_container_width=True)
+        with st.container(border=True):
+            st.image(logo_bytes, caption="Logo atual", use_container_width=True)
     else:
-        st.caption("Nenhuma logo cadastrada ainda.")
+        render_empty_state("Nenhuma logo cadastrada", "Envie uma imagem para reforcar a identidade visual do sistema.")
 with helper_col:
-    st.write("A logo será usada na barra lateral, no HTML/PDF do orçamento e como ícone do app no navegador/celular quando disponível.")
-    st.caption("Recomendação: PNG quadrado com fundo transparente, até 2 MB.")
+    with st.container(border=True):
+        st.write("A logo sera usada na barra lateral, no HTML/PDF do orcamento e como icone do app no navegador.")
+        st.caption("Sempre que possivel, prefira arquivos limpos e com boa leitura em tamanhos reduzidos.")
 
 with st.form("form_configuracoes_empresa"):
-    st.markdown("### Dados principais")
+    render_section_header("Dados principais")
     a1, a2 = st.columns(2)
     nome_fantasia = a1.text_input("Nome fantasia *", value=company.get("nome_fantasia") or "")
-    razao_social = a2.text_input("Razão social", value=company.get("razao_social") or "")
+    razao_social = a2.text_input("Razao social", value=company.get("razao_social") or "")
 
     b1, b2, b3 = st.columns(3)
     cnpj = b1.text_input("CNPJ", value=company.get("cnpj") or "")
@@ -3000,36 +3325,36 @@ with st.form("form_configuracoes_empresa"):
     email = b3.text_input("Email", value=company.get("email") or "")
 
     c1, c2 = st.columns(2)
-    endereco = c1.text_input("Endereço", value=company.get("endereco") or "")
+    endereco = c1.text_input("Endereco", value=company.get("endereco") or "")
     cidade_estado = c2.text_input("Cidade / Estado", value=company.get("cidade_estado") or "")
 
-    st.markdown("### Presença digital")
+    render_section_header("Presenca digital")
     d1, d2 = st.columns(2)
     website = d1.text_input("Site", value=company.get("website") or "")
     instagram = d2.text_input("Instagram", value=company.get("instagram") or "")
 
-    st.markdown("### Nome do app")
+    render_section_header("Nome do app")
     e1, e2 = st.columns(2)
-    app_title = e1.text_input("Título do app", value=company.get("app_title") or company.get("nome_fantasia") or "")
+    app_title = e1.text_input("Titulo do app", value=company.get("app_title") or company.get("nome_fantasia") or "")
     app_short_name = e2.text_input(
         "Nome curto para celular",
         value=company.get("app_short_name") or company.get("nome_fantasia") or "",
-        help="Usado como nome curto em atalhos e identificação do app.",
+        help="Usado em atalhos e na identificacao do app.",
     )
 
-    st.markdown("### Logo")
+    render_section_header("Logo")
     logo_file = st.file_uploader("Enviar nova logo", type=["png", "jpg", "jpeg"])
     remover_logo = st.checkbox("Remover logo atual")
 
-    observacoes = st.text_area("Observações", value=company.get("observacoes") or "", height=120)
+    observacoes = st.text_area("Observacoes", value=company.get("observacoes") or "", height=120)
 
-    salvar = st.form_submit_button("Salvar configurações", use_container_width=True)
+    salvar = st.form_submit_button("Salvar configuracoes", use_container_width=True)
 
     if salvar:
         if not nome_fantasia.strip():
             st.error("Informe pelo menos o nome fantasia da empresa.")
         elif not app_title.strip():
-            st.error("Informe o título do app.")
+            st.error("Informe o titulo do app.")
         elif not app_short_name.strip():
             st.error("Informe o nome curto do app.")
         elif logo_file is not None and len(logo_file.getvalue()) > MAX_LOGO_SIZE:
@@ -3064,5 +3389,5 @@ with st.form("form_configuracoes_empresa"):
                 data["logo_filename"] = logo_file.name
 
             upsert_company_info(data)
-            st.success("Configurações salvas com sucesso.")
+            st.success("Configuracoes salvas com sucesso.")
             st.rerun()

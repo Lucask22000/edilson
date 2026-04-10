@@ -88,29 +88,31 @@ def inject_custom_css(page_title: str) -> None:
         """
         <style>
             :root {
-                --bg-top: #fff7ed;
-                --bg-bottom: #fff1de;
+                --bg-top: #ffffff;
+                --bg-bottom: #f7f9fc;
                 --surface: #ffffff;
-                --surface-muted: #fff3e6;
-                --surface-strong: #ffe3c4;
-                --border: #eadfd4;
-                --border-strong: #dbcab7;
-                --text-main: #1f2937;
-                --text-soft: #374151;
-                --text-muted: #6b7280;
-                --brand: #f97316;
-                --brand-strong: #ea580c;
-                --brand-deep: #c2410c;
-                --sidebar-top: #fff5e9;
-                --sidebar-bottom: #ffe9d1;
-                --sidebar-text: #1f2937;
-                --sidebar-muted: #6b7280;
+                --surface-muted: #f0f2f6;
+                --surface-strong: #fff1f1;
+                --border: #e3e7ef;
+                --border-strong: #d4dae5;
+                --text-main: #262730;
+                --text-soft: #31333f;
+                --text-muted: #6c7383;
+                --brand: #ff4b4b;
+                --brand-strong: #e03e3e;
+                --brand-deep: #bf2f2f;
+                --sidebar-top: #f7f9fc;
+                --sidebar-bottom: #eef2f7;
+                --sidebar-text: #262730;
+                --sidebar-muted: #6c7383;
+                --shadow-soft: 0 14px 30px rgba(31, 41, 55, 0.08);
             }
             .stApp {
                 background:
-                    radial-gradient(circle at top right, rgba(249, 115, 22, 0.12), transparent 28%),
-                    linear-gradient(180deg, var(--bg-top) 0%, #fffaf5 20%, var(--bg-bottom) 100%);
+                    radial-gradient(circle at top right, rgba(255, 75, 75, 0.10), transparent 28%),
+                    linear-gradient(180deg, var(--bg-top) 0%, #fbfcfe 20%, var(--bg-bottom) 100%);
                 color: var(--text-main);
+                font-family: "Trebuchet MS", "Segoe UI", sans-serif;
             }
             [data-testid="stSidebar"] {
                 background: linear-gradient(180deg, var(--sidebar-top) 0%, var(--sidebar-bottom) 100%);
@@ -135,11 +137,21 @@ def inject_custom_css(page_title: str) -> None:
                 -webkit-text-fill-color: var(--sidebar-text) !important;
             }
             [data-testid="stSidebar"] [data-testid="stButton"] > button:hover {
-                background: rgba(249, 115, 22, 0.08);
-                border-color: rgba(249, 115, 22, 0.15);
+                background: rgba(255, 75, 75, 0.08);
+                border-color: rgba(255, 75, 75, 0.15);
+            }
+            [data-testid="stSidebarNav"] {
+                background: transparent;
+                padding-top: 0.25rem;
+            }
+            [data-testid="stSidebarNav"] a {
+                border-radius: 14px;
+                margin-bottom: 0.25rem;
             }
             .block-container {
                 padding-top: 2rem;
+                padding-bottom: 2rem;
+                max-width: 1400px;
             }
             h1, h2, h3, h4, h5, h6 {
                 color: var(--text-main);
@@ -161,6 +173,7 @@ def inject_custom_css(page_title: str) -> None:
                 background: rgba(255, 255, 255, 0.96);
                 border: 1px solid rgba(216, 219, 225, 0.95);
                 padding: 1rem;
+                box-shadow: var(--shadow-soft);
             }
             div[data-baseweb="input"] > div,
             div[data-baseweb="select"] > div,
@@ -184,9 +197,10 @@ def inject_custom_css(page_title: str) -> None:
             div[data-baseweb="textarea"] > div:focus-within,
             [data-testid="stDateInputField"]:focus-within {
                 border-color: var(--brand);
-                box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.18);
+                box-shadow: 0 0 0 2px rgba(255, 75, 75, 0.18);
             }
             .stButton > button,
+            [data-testid="stFormSubmitButton"] > button,
             .stDownloadButton > button,
             [data-testid="stLinkButton"] a {
                 background: linear-gradient(180deg, var(--brand) 0%, var(--brand-strong) 100%);
@@ -194,9 +208,13 @@ def inject_custom_css(page_title: str) -> None:
                 border: 1px solid var(--brand-strong);
                 border-radius: 12px;
                 font-weight: 600;
-                box-shadow: 0 6px 14px rgba(249, 115, 22, 0.18);
+                box-shadow: 0 6px 14px rgba(255, 75, 75, 0.18);
             }
             .stButton > button *,
+            [data-testid="stFormSubmitButton"] > button *,
+            [data-testid="stFormSubmitButton"] > button p,
+            [data-testid="stFormSubmitButton"] > button span,
+            [data-testid="stFormSubmitButton"] > button [data-testid="stMarkdownContainer"] p,
             .stButton > button p,
             .stButton > button span,
             .stButton > button [data-testid="stMarkdownContainer"] p,
@@ -214,11 +232,28 @@ def inject_custom_css(page_title: str) -> None:
                 text-decoration: none !important;
             }
             .stButton > button:hover,
+            [data-testid="stFormSubmitButton"] > button:hover,
             .stDownloadButton > button:hover,
             [data-testid="stLinkButton"] a:hover {
-                background: linear-gradient(180deg, #fb8a2f 0%, #d75a07 100%);
-                border-color: #c24e05;
+                background: linear-gradient(180deg, #ff6b6b 0%, #e03e3e 100%);
+                border-color: #d13737;
                 color: #ffffff;
+            }
+            [data-testid="stFormSubmitButton"] > button:disabled,
+            [data-testid="stFormSubmitButton"] > button[disabled] {
+                background: linear-gradient(180deg, #ff8585 0%, #f06363 100%);
+                border-color: #ea6a6a;
+                color: #ffffff !important;
+                opacity: 1;
+            }
+            [data-testid="stFormSubmitButton"] > button:disabled *,
+            [data-testid="stFormSubmitButton"] > button[disabled] *,
+            [data-testid="stFormSubmitButton"] > button:disabled p,
+            [data-testid="stFormSubmitButton"] > button[disabled] p,
+            [data-testid="stFormSubmitButton"] > button:disabled span,
+            [data-testid="stFormSubmitButton"] > button[disabled] span {
+                color: #ffffff !important;
+                -webkit-text-fill-color: #ffffff !important;
             }
             .stButton > button[kind="secondary"],
             [data-testid="stLinkButton"] a[kind="secondary"] {
@@ -241,7 +276,7 @@ def inject_custom_css(page_title: str) -> None:
             [data-testid="stDataFrame"] {
                 background: var(--surface);
                 border: 1px solid var(--border);
-                box-shadow: 0 8px 24px rgba(28, 30, 33, 0.06);
+                box-shadow: var(--shadow-soft);
             }
             [data-testid="stTable"] {
                 color: var(--text-main);
@@ -249,11 +284,87 @@ def inject_custom_css(page_title: str) -> None:
             [data-testid="stExpander"] {
                 background: rgba(255, 255, 255, 0.96);
                 border: 1px solid rgba(216, 219, 225, 0.9);
+                box-shadow: var(--shadow-soft);
             }
             [data-testid="stMetric"] {
                 background: rgba(255, 255, 255, 0.98);
                 border: 1px solid rgba(216, 219, 225, 0.95);
                 padding: 0.25rem 0.35rem;
+            }
+            .page-header {
+                position: relative;
+                overflow: hidden;
+                background:
+                    radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 24%),
+                    linear-gradient(135deg, #992d2d 0%, var(--brand-deep) 28%, var(--brand) 100%);
+                color: #ffffff;
+                border-radius: 24px;
+                padding: 1.6rem 1.8rem;
+                margin-bottom: 1.2rem;
+                box-shadow: 0 18px 44px rgba(255, 75, 75, 0.22);
+            }
+            .page-header::after {
+                content: "";
+                position: absolute;
+                inset: auto -60px -70px auto;
+                width: 200px;
+                height: 200px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.12);
+            }
+            .page-header__content {
+                position: relative;
+                z-index: 1;
+            }
+            .page-header__eyebrow {
+                margin: 0 0 0.35rem 0;
+                font-size: 0.82rem;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: rgba(255, 255, 255, 0.78);
+            }
+            .page-header__title-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 1rem;
+                flex-wrap: wrap;
+            }
+            .page-header__title-row h1 {
+                margin: 0;
+                color: #ffffff;
+                font-size: 2rem;
+                line-height: 1.1;
+            }
+            .page-header__description {
+                margin: 0.55rem 0 0 0;
+                max-width: 760px;
+                color: rgba(255, 255, 255, 0.88);
+                font-size: 1rem;
+            }
+            .page-header__badge {
+                display: inline-flex;
+                align-items: center;
+                border-radius: 999px;
+                padding: 0.45rem 0.85rem;
+                background: rgba(255, 255, 255, 0.16);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                color: #ffffff;
+                font-size: 0.82rem;
+                font-weight: 700;
+                backdrop-filter: blur(6px);
+            }
+            .section-header {
+                margin: 0.2rem 0 0.75rem 0;
+            }
+            .section-header h3 {
+                margin: 0;
+                font-size: 1.1rem;
+            }
+            .section-header__description {
+                margin: 0.25rem 0 0 0;
+                color: var(--text-muted);
+                font-size: 0.93rem;
             }
             .hero-box {
                 background: linear-gradient(135deg, var(--brand-deep) 0%, var(--brand) 100%);
@@ -261,14 +372,14 @@ def inject_custom_css(page_title: str) -> None:
                 border-radius: 18px;
                 padding: 1.4rem 1.6rem;
                 margin-bottom: 1rem;
-                box-shadow: 0 16px 36px rgba(249, 115, 22, 0.22);
+                box-shadow: 0 16px 36px rgba(255, 75, 75, 0.22);
             }
             .metric-card {
                 background: var(--surface);
                 border: 1px solid rgba(216, 219, 225, 0.95);
                 border-radius: 16px;
                 padding: 1rem 1.1rem;
-                box-shadow: 0 12px 28px rgba(28, 30, 33, 0.08);
+                box-shadow: var(--shadow-soft);
                 min-height: 118px;
             }
             .metric-label {
@@ -293,7 +404,192 @@ def inject_custom_css(page_title: str) -> None:
                 border-radius: 16px;
                 padding: 1rem 1.1rem;
                 margin-bottom: 1rem;
-                box-shadow: 0 8px 22px rgba(28, 30, 33, 0.06);
+                box-shadow: var(--shadow-soft);
+            }
+            .info-card {
+                background: linear-gradient(180deg, #ffffff 0%, #fff7f7 100%);
+                border: 1px solid rgba(255, 75, 75, 0.12);
+                border-radius: 16px;
+                padding: 1rem 1.1rem;
+                box-shadow: var(--shadow-soft);
+                min-height: 118px;
+            }
+            .info-card__title {
+                color: var(--text-muted);
+                font-size: 0.86rem;
+                margin-bottom: 0.35rem;
+            }
+            .info-card__value {
+                color: var(--text-main);
+                font-size: 1.35rem;
+                font-weight: 700;
+                line-height: 1.2;
+            }
+            .info-card__helper {
+                margin: 0.4rem 0 0 0;
+                color: var(--text-muted);
+                font-size: 0.84rem;
+            }
+            .toolbar-card {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 1rem;
+                flex-wrap: wrap;
+                background: rgba(255, 255, 255, 0.78);
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                padding: 0.8rem 1rem;
+                margin-bottom: 0.8rem;
+                box-shadow: var(--shadow-soft);
+            }
+            .toolbar-card strong {
+                color: var(--text-main);
+            }
+            .toolbar-card span {
+                color: var(--text-muted);
+                font-size: 0.9rem;
+            }
+            .empty-state {
+                text-align: center;
+                padding: 1.4rem 1.2rem;
+                border-radius: 18px;
+                border: 1px dashed rgba(255, 75, 75, 0.25);
+                background: rgba(255, 255, 255, 0.75);
+                box-shadow: var(--shadow-soft);
+            }
+            .empty-state h4 {
+                margin: 0;
+            }
+            .empty-state p {
+                margin: 0.4rem 0 0 0;
+                color: var(--text-muted);
+            }
+            .login-shell {
+                max-width: 980px;
+                margin: 3.5rem auto 0 auto;
+            }
+            .login-panel {
+                background:
+                    radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 26%),
+                    linear-gradient(135deg, #992d2d 0%, var(--brand-deep) 28%, var(--brand) 100%);
+                border-radius: 28px;
+                padding: 2rem;
+                box-shadow: 0 24px 48px rgba(255, 75, 75, 0.20);
+                color: #ffffff;
+                min-height: 100%;
+            }
+            .login-panel h1 {
+                color: #ffffff;
+                margin: 0 0 0.5rem 0;
+                font-size: 2rem;
+                line-height: 1.05;
+            }
+            .login-panel p {
+                color: rgba(255, 255, 255, 0.86);
+                margin: 0;
+                line-height: 1.6;
+            }
+            .login-panel__eyebrow {
+                display: inline-block;
+                margin-bottom: 0.85rem;
+                font-size: 0.78rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: rgba(255, 255, 255, 0.76);
+            }
+            .login-meta {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.8rem;
+                margin-top: 1.35rem;
+            }
+            .login-meta__item {
+                background: rgba(255, 255, 255, 0.12);
+                border: 1px solid rgba(255, 255, 255, 0.16);
+                border-radius: 16px;
+                padding: 0.9rem 1rem;
+            }
+            .login-meta__label {
+                display: block;
+                font-size: 0.78rem;
+                font-weight: 700;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                color: rgba(255, 255, 255, 0.72);
+                margin-bottom: 0.3rem;
+            }
+            .login-meta__value {
+                color: #ffffff;
+                font-size: 0.96rem;
+                font-weight: 600;
+            }
+            .login-card {
+                background: rgba(255, 255, 255, 0.97);
+                border: 1px solid var(--border);
+                border-radius: 24px;
+                padding: 1.6rem;
+                box-shadow: var(--shadow-soft);
+            }
+            .login-card label {
+                color: var(--text-main) !important;
+                font-weight: 600;
+            }
+            .login-card__header {
+                margin-bottom: 1rem;
+            }
+            .login-card__header h3 {
+                margin: 0;
+                font-size: 1.3rem;
+            }
+            .login-card__header p {
+                margin: 0.35rem 0 0 0;
+                color: var(--text-muted);
+            }
+            .login-card [data-testid="stForm"] {
+                background: transparent;
+                border: none;
+                box-shadow: none;
+                padding: 0;
+            }
+            .login-card div[data-baseweb="input"] > div {
+                background: #ffffff;
+                border: 1px solid #cfd6e4;
+            }
+            .login-card div[data-baseweb="input"] input {
+                color: var(--text-main) !important;
+                -webkit-text-fill-color: var(--text-main) !important;
+            }
+            .sidebar-company-card,
+            .sidebar-user-card {
+                background: rgba(255, 255, 255, 0.68);
+                border: 1px solid rgba(219, 202, 183, 0.95);
+                border-radius: 18px;
+                padding: 0.95rem 1rem;
+                box-shadow: 0 12px 24px rgba(82, 89, 109, 0.08);
+                margin-bottom: 0.8rem;
+            }
+            .sidebar-company-card h3,
+            .sidebar-user-card h4 {
+                margin: 0;
+                color: var(--text-main);
+            }
+            .sidebar-company-card p,
+            .sidebar-user-card p {
+                margin: 0.3rem 0 0 0;
+                color: var(--text-muted);
+                font-size: 0.9rem;
+                line-height: 1.5;
+            }
+            .sidebar-label {
+                display: inline-block;
+                margin-bottom: 0.35rem;
+                color: var(--brand-strong);
+                font-size: 0.78rem;
+                font-weight: 700;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
             }
             .status-pill {
                 display: inline-block;
@@ -304,12 +600,33 @@ def inject_custom_css(page_title: str) -> None:
                 font-size: 0.85rem;
             }
             .total-box {
-                background: linear-gradient(180deg, #fff8f0 0%, var(--surface-strong) 100%);
-                border: 1px solid rgba(249, 115, 22, 0.18);
+                background: linear-gradient(180deg, #fff9f9 0%, var(--surface-strong) 100%);
+                border: 1px solid rgba(255, 75, 75, 0.18);
                 border-radius: 16px;
                 padding: 1rem 1.2rem;
                 color: var(--text-main);
                 box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+            }
+            @media (max-width: 900px) {
+                .page-header {
+                    padding: 1.35rem 1.1rem;
+                }
+                .page-header__title-row h1 {
+                    font-size: 1.65rem;
+                }
+                .toolbar-card {
+                    align-items: flex-start;
+                }
+                .login-shell {
+                    margin-top: 1.5rem;
+                }
+                .login-panel,
+                .login-card {
+                    padding: 1.25rem;
+                }
+                .login-meta {
+                    grid-template-columns: 1fr;
+                }
             }
         </style>
         """,
@@ -345,7 +662,7 @@ def inject_custom_css(page_title: str) -> None:
 
             ensureMeta("name", "apple-mobile-web-app-title", {json.dumps(app_short_name)});
             ensureMeta("name", "application-name", {json.dumps(app_short_name)});
-            ensureMeta("name", "theme-color", "#f97316");
+            ensureMeta("name", "theme-color", "#ff4b4b");
 
             const logo = {json.dumps(logo_data_uri or "")};
             if (logo) {{
@@ -373,6 +690,27 @@ def logout() -> None:
     st.rerun()
 
 
+def restore_sidebar_visibility() -> None:
+    components.html(
+        """
+        <script>
+            const doc = window.parent.document;
+            const sidebar = doc.querySelector('[data-testid="stSidebar"]');
+            const collapsed = doc.querySelector('[data-testid="collapsedControl"]');
+            if (sidebar) {
+                sidebar.style.display = '';
+                sidebar.style.visibility = 'visible';
+            }
+            if (collapsed) {
+                collapsed.style.display = '';
+                collapsed.style.visibility = 'visible';
+            }
+        </script>
+        """,
+        height=0,
+    )
+
+
 def ensure_authenticated(page_title: str) -> dict:
     auth_user = st.session_state.get(AUTH_SESSION_KEY)
     if auth_user:
@@ -381,9 +719,80 @@ def ensure_authenticated(page_title: str) -> dict:
     company = get_company_info()
     logo_bytes = get_logo_bytes(company)
 
-    spacer_left, content, spacer_right = st.columns([1, 1.2, 1])
-    with content:
-        st.markdown("### Acesso ao sistema")
+    company_name = safe_text(company.get("nome_fantasia"), "Empresa")
+    company_phone = safe_text(company.get("telefone"), "Nao informado")
+    company_email = safe_text(company.get("email"), "Nao informado")
+
+    st.markdown(
+        """
+        <style>
+            [data-testid="stSidebar"],
+            [data-testid="collapsedControl"] {
+                display: none !important;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    components.html(
+        """
+        <script>
+            const doc = window.parent.document;
+            const sidebar = doc.querySelector('[data-testid="stSidebar"]');
+            const collapsed = doc.querySelector('[data-testid="collapsedControl"]');
+            if (sidebar) sidebar.style.display = 'none';
+            if (collapsed) collapsed.style.display = 'none';
+        </script>
+        """,
+        height=0,
+    )
+
+    info_col, form_col = st.columns([1.1, 0.95], gap="large")
+    with info_col:
+        st.markdown(
+            f"""
+            <section class="login-shell">
+                <div class="login-panel">
+                    <span class="login-panel__eyebrow">Acesso seguro</span>
+                    <h1>Sistema de orcamentos</h1>
+                    <p>Controle clientes, servicos e propostas comerciais com uma experiencia administrativa consistente e profissional.</p>
+                    <div class="login-meta">
+                        <div class="login-meta__item">
+                            <span class="login-meta__label">Empresa</span>
+                            <span class="login-meta__value">{html.escape(company_name)}</span>
+                        </div>
+                        <div class="login-meta__item">
+                            <span class="login-meta__label">Pagina</span>
+                            <span class="login-meta__value">{html.escape(page_title)}</span>
+                        </div>
+                        <div class="login-meta__item">
+                            <span class="login-meta__label">Telefone</span>
+                            <span class="login-meta__value">{html.escape(company_phone)}</span>
+                        </div>
+                        <div class="login-meta__item">
+                            <span class="login-meta__label">Email</span>
+                            <span class="login-meta__value">{html.escape(company_email)}</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
+    with form_col:
+        st.markdown(
+            """
+            <section class="login-shell">
+                <div class="login-card">
+                    <div class="login-card__header">
+                        <h3>Entrar no sistema</h3>
+                        <p>Use suas credenciais para acessar o ambiente administrativo.</p>
+                    </div>
+                </div>
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
         with st.container(border=True):
             if logo_bytes:
                 st.image(logo_bytes, width=120)
@@ -411,23 +820,42 @@ def render_sidebar_branding(page_title: str) -> None:
     logo_bytes = get_logo_bytes(company)
     auth_user = st.session_state.get(AUTH_SESSION_KEY, {})
 
+    restore_sidebar_visibility()
+
     with st.sidebar:
         if logo_bytes:
             st.image(logo_bytes, width=128)
-        st.title(safe_text(company.get("nome_fantasia"), "Empresa"))
-        st.caption(page_title)
-
         company_details = []
         if company.get("cnpj"):
             company_details.append(f"CNPJ: {company['cnpj']}")
         if company.get("telefone"):
             company_details.append(f"Tel.: {company['telefone']}")
-        if company_details:
-            st.caption(" | ".join(company_details))
+        details_text = " | ".join(company_details) if company_details else "Sistema administrativo de orcamentos"
 
-        st.markdown("---")
+        st.markdown(
+            f"""
+            <div class="sidebar-company-card">
+                <span class="sidebar-label">Empresa</span>
+                <h3>{html.escape(safe_text(company.get("nome_fantasia"), "Empresa"))}</h3>
+                <p>{html.escape(page_title)}</p>
+                <p>{html.escape(details_text)}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="sidebar-user-card">
+                <span class="sidebar-label">Sessao</span>
+                <h4>{html.escape(safe_text(auth_user.get("nome"), "Administrador"))}</h4>
+                <p>Login: {html.escape(safe_text(auth_user.get("username"), "admin"))}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.write(f"**Usuário:** {safe_text(auth_user.get('nome'), 'Administrador')}")
-        st.caption(f"Login: {safe_text(auth_user.get('username'), 'admin')}")
+        st.caption("Use o menu lateral para navegar entre dashboard, cadastros, orcamentos e configuracoes.")
         if st.button("Sair", use_container_width=True):
             logout()
 
@@ -614,7 +1042,7 @@ def build_quote_html(orcamento: dict) -> str:
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-start;
-                    border-bottom: 2px solid #f97316;
+                    border-bottom: 2px solid #ff4b4b;
                     padding-bottom: 12px;
                     margin-bottom: 18px;
                     gap: 20px;
@@ -625,13 +1053,13 @@ def build_quote_html(orcamento: dict) -> str:
                     align-items: center;
                 }}
                 .title {{
-                    color: #f97316;
+                    color: #ff4b4b;
                     font-size: 26px;
                     font-weight: 700;
                     margin: 0 0 6px 0;
                 }}
                 .company-name {{
-                    color: #f97316;
+                    color: #ff4b4b;
                     font-size: 20px;
                     font-weight: 700;
                     margin: 0 0 4px 0;
@@ -663,7 +1091,7 @@ def build_quote_html(orcamento: dict) -> str:
                     font-size: 13px;
                 }}
                 th {{
-                    background: #fff3e6;
+                    background: #f0f2f6;
                     text-align: left;
                 }}
                 .totals {{
@@ -678,7 +1106,7 @@ def build_quote_html(orcamento: dict) -> str:
                 .total-final {{
                     font-size: 18px;
                     font-weight: 700;
-                    color: #f97316;
+                    color: #ff4b4b;
                 }}
                 .print-btn {{
                     margin-bottom: 16px;
@@ -814,7 +1242,7 @@ def build_quote_pdf(orcamento: dict) -> bytes:
     def draw_page_header() -> float:
         nonlocal y
         header_height = 88
-        pdf.setFillColor(colors.HexColor("#F97316"))
+        pdf.setFillColor(colors.HexColor("#FF4B4B"))
         pdf.rect(0, height - header_height, width, header_height, fill=1, stroke=0)
         pdf.setFillColor(colors.white)
         _draw_company_logo(pdf, company, left, height - 12, 56, 56)
@@ -993,7 +1421,7 @@ def build_quote_pdf(orcamento: dict) -> bytes:
     pdf.drawRightString(430, y, "Taxa adicional:")
     pdf.drawRightString(right, y, currency(orcamento.get("taxa_adicional", 0)))
     y -= 18
-    pdf.setFillColor(colors.HexColor("#F97316"))
+    pdf.setFillColor(colors.HexColor("#FF4B4B"))
     pdf.setFont("Helvetica-Bold", 13)
     pdf.drawRightString(430, y, "Total final:")
     pdf.drawRightString(right, y, currency(orcamento.get("total_final", 0)))
